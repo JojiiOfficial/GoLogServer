@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
-	"strings"
 )
 
 //Config config for the server
@@ -33,15 +33,11 @@ func createConfig(configFile string) error {
 	if err != nil {
 		return err
 	}
-	strConf := string(d)
 
-	strConf = strings.ReplaceAll(strConf, "{", "{\n")
-	strConf = strings.ReplaceAll(strConf, "[", "[\n")
-	strConf = strings.ReplaceAll(strConf, "}", "\n}")
-	strConf = strings.ReplaceAll(strConf, "]", "\n]")
-	strConf = strings.ReplaceAll(strConf, ",", ",\n")
+	var out bytes.Buffer
+	json.Indent(&out, d, "", "\t")
 
-	_, err = f.WriteString(strConf)
+	_, err = f.Write(out.Bytes())
 	if err != nil {
 		return err
 	}

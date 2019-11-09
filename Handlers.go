@@ -10,8 +10,21 @@ import (
 	"strings"
 )
 
-func storeLogs(w http.ResponseWriter, r *http.Request) {
-	handleError(sendSuccess(w, "ok"), w, ServerError, 500)
+func pushSyslog(w http.ResponseWriter, r *http.Request) {
+	var report StoreSyslogRequest
+	if !handleUserInput(w, r, &report) {
+		return
+	}
+	if isStructInvalid(report) {
+		sendError("input missing", w, WrongInputFormatError, 422)
+		return
+	}
+	if len(report.Token) != 24 {
+		sendError("wrong token length", w, InvalidTokenError, 422)
+		return
+	}
+	cod := insertSyslogs(report.Token, report.StartTime, report.Syslogs)
+	handleError(sendSuccess(w, cod), w, ServerError, 500)
 }
 
 func handleUserInput(w http.ResponseWriter, r *http.Request, p interface{}) bool {

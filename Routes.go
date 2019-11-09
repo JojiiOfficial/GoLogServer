@@ -35,9 +35,9 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
-		"store",
+		"pushSyslog",
 		"POST",
-		"/store",
-		storeLogs,
+		"/push/syslog",
+		pushSyslog,
 	},
 }
