@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func login(w http.ResponseWriter, r *http.Request) {
+func storeLogs(w http.ResponseWriter, r *http.Request) {
 	handleError(sendSuccess(w, "ok"), w, ServerError, 500)
 }
 
