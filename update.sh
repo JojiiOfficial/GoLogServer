@@ -1,5 +1,5 @@
 #!/bin/bash
 
-git pull
-go build -o gologserver
+git pull &&
+go build -o gologserver &&
 ./gologserver start
