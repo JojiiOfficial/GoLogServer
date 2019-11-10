@@ -35,8 +35,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		return -1, nil
 	}
 	var syslogs []SyslogEntry
-
-	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date >=?", logRequest.Since)
+	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ?", logRequest.Since)
 	if err != nil {
 		LogCritical("Couldn't fetch: " + err.Error())
 		return -2, nil

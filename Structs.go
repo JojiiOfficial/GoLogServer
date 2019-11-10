@@ -37,6 +37,7 @@ type FetchLogsRequest struct {
 	Token   string `json:"t"`
 	Since   int64  `json:"sin"`
 	LogType int    `json:"lt"`
+	Follow  bool   `json:"foll"`
 }
 
 //FetchSysLogResponse response for fetchlog

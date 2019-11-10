@@ -44,19 +44,29 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 	switch fetchRequestData.LogType {
 	case 0:
 		{
-			status, logs := fetchSyslogLogs(fetchRequestData)
-			if status == -1 {
-				sendError("wrong token", w, InvalidTokenError, 422)
-				return
-			} else if status == -2 {
-				sendError("server error", w, ServerError, 500)
-				return
+			c := 0
+			for ok := true; ok; ok = fetchRequestData.Follow {
+				fmt.Println(fetchRequestData.Since)
+				status, logs := fetchSyslogLogs(fetchRequestData)
+				if status == -1 {
+					sendError("wrong token", w, InvalidTokenError, 422)
+					return
+				} else if status == -2 {
+					sendError("server error", w, ServerError, 500)
+					return
+				}
+				if len(logs) == 0 && fetchRequestData.Follow && c <= 6 {
+					time.Sleep(2 * time.Second)
+					c++
+					continue
+				}
+				resp := FetchSysLogResponse{
+					Time: time.Now().Unix(),
+					Logs: logs,
+				}
+				handleError(sendSuccess(w, resp), w, ServerError, 500)
+				break
 			}
-			resp := FetchSysLogResponse{
-				Time: time.Now().Unix(),
-				Logs: logs,
-			}
-			handleError(sendSuccess(w, resp), w, ServerError, 500)
 		}
 	default:
 		{
@@ -138,6 +148,10 @@ func isEmptyValue(e reflect.Value) bool {
 			return false
 		}
 	case reflect.Int64:
+		{
+			return false
+		}
+	case reflect.Bool:
 		{
 			return false
 		}
