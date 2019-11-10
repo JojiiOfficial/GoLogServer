@@ -1,5 +1,9 @@
 package main
 
+import (
+	"strings"
+)
+
 func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	uid := IsUserValid(token)
 	if uid <= 0 {
@@ -35,7 +39,28 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		return -1, nil
 	}
 	var syslogs []SyslogEntry
-	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ?", logRequest.Since)
+
+	var and string
+
+	if len(logRequest.HostnameFilter) > 0 {
+		negate := false
+		hnFilter := logRequest.HostnameFilter
+		negate = strings.HasPrefix(hnFilter[0], "!")
+		if negate {
+			hnFilter[0] = hnFilter[0][1:]
+		}
+		inBlock := "("
+		for _, e := range hnFilter {
+			inBlock += "\"" + EscapeSpecialChars(e) + "\","
+		}
+		inBlock = inBlock[:len(inBlock)-1] + ")"
+		not := ""
+		if negate {
+			not = "not"
+		}
+		and = " AND hostname " + not + " in " + inBlock
+	}
+	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? "+and, logRequest.Since)
 	if err != nil {
 		LogCritical("Couldn't fetch: " + err.Error())
 		return -2, nil

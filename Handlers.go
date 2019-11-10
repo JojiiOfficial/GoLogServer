@@ -46,7 +46,6 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 		{
 			c := 0
 			for ok := true; ok; ok = fetchRequestData.Follow {
-				fmt.Println(fetchRequestData.Since)
 				status, logs := fetchSyslogLogs(fetchRequestData)
 				if status == -1 {
 					sendError("wrong token", w, InvalidTokenError, 422)
@@ -55,11 +54,13 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 					sendError("server error", w, ServerError, 500)
 					return
 				}
+
 				if len(logs) == 0 && fetchRequestData.Follow && c <= 6 {
 					time.Sleep(2 * time.Second)
 					c++
 					continue
 				}
+
 				resp := FetchSysLogResponse{
 					Time: time.Now().Unix(),
 					Logs: logs,
