@@ -29,6 +29,22 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	return 1
 }
 
+func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
+	uid := IsUserValid(logRequest.Token)
+	if uid <= 0 {
+		return -1, nil
+	}
+	var syslogs []SyslogEntry
+
+	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date >=?", logRequest.Since)
+	if err != nil {
+		LogCritical("Couldn't fetch: " + err.Error())
+		return -2, nil
+	}
+
+	return 1, syslogs
+}
+
 //IsUserValid returns userid if valid or -1 if invalid
 func IsUserValid(token string) int {
 	sqlCheckUserValid := "SELECT User.pk_id FROM User WHERE token=? AND User.isValid=1"

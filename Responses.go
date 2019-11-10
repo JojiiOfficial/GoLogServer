@@ -12,6 +12,8 @@ var ResponseSuccess = Status{"success", ""}
 const (
 	//ServerError error from server
 	ServerError ErrorMessage = "Server Error"
+	//WrongLogType wrong user input
+	WrongLogType ErrorMessage = "Wrong Logtype!"
 	//WrongInputFormatError wrong user input
 	WrongInputFormatError ErrorMessage = "Wrong inputFormat!"
 	//InvalidTokenError token is not valid

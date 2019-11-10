@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func pushSyslog(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +26,44 @@ func pushSyslog(w http.ResponseWriter, r *http.Request) {
 	}
 	cod := insertSyslogs(report.Token, report.StartTime, report.Syslogs)
 	handleError(sendSuccess(w, cod), w, ServerError, 500)
+}
+
+func fetchLogs(w http.ResponseWriter, r *http.Request) {
+	var fetchRequestData FetchLogsRequest
+	if !handleUserInput(w, r, &fetchRequestData) {
+		return
+	}
+	if isStructInvalid(fetchRequestData) {
+		sendError("input missing", w, WrongInputFormatError, 422)
+		return
+	}
+	if len(fetchRequestData.Token) != 24 {
+		sendError("wrong token length", w, InvalidTokenError, 422)
+		return
+	}
+	switch fetchRequestData.LogType {
+	case 0:
+		{
+			status, logs := fetchSyslogLogs(fetchRequestData)
+			if status == -1 {
+				sendError("wrong token", w, InvalidTokenError, 422)
+				return
+			} else if status == -2 {
+				sendError("server error", w, ServerError, 500)
+				return
+			}
+			resp := FetchSysLogResponse{
+				Time: time.Now().Unix(),
+				Logs: logs,
+			}
+			handleError(sendSuccess(w, resp), w, ServerError, 500)
+		}
+	default:
+		{
+			sendError("Wrong log type", w, WrongLogType, 422)
+			return
+		}
+	}
 }
 
 func handleUserInput(w http.ResponseWriter, r *http.Request, p interface{}) bool {

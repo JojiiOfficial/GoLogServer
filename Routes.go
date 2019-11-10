@@ -40,4 +40,10 @@ var routes = Routes{
 		"/push/syslog",
 		pushSyslog,
 	},
+	Route{
+		"fetch",
+		"POST",
+		"/fetch",
+		fetchLogs,
+	},
 }
