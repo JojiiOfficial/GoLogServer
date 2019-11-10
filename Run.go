@@ -26,6 +26,7 @@ var runCMD = &cli.Command{
 	Fn: func(ct *cli.Context) error {
 		exit, config := checkConfig(configFile)
 		if exit {
+			os.Exit(1)
 			return nil
 		}
 
@@ -103,7 +104,7 @@ func checkConfig(configFile string) (exit bool, config *Config) {
 	}
 	config = readConfig(configFile)
 	if len(config.Host) == 0 || len(config.Pass) == 0 {
-		LogError("You need to fill the config")
+		LogCritical("You need to fill the config")
 		return true, nil
 	}
 	return false, config
