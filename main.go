@@ -11,7 +11,7 @@ var showTimeInLog = false
 var logPrefix = ""
 var config Config
 var configFile = "config.json"
-var serviceName = "gologgerserver.service"
+var serviceName = "GoLogServer"
 
 type argT struct {
 	cli.Helper
