@@ -49,12 +49,12 @@ func createConfig(configFile string) error {
 	return nil
 }
 
-func readConfig(file string) Config {
+func readConfig(file string) *Config {
 	dat, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
-	res := Config{}
+	res := &Config{}
 	err = json.Unmarshal(dat, &res)
 	if err != nil {
 		panic(err)

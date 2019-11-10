@@ -11,7 +11,7 @@ import (
 var db *sqlx.DB
 var dbLock sync.Mutex
 
-func initDB(config Config) {
+func initDB(config *Config) {
 	var err error
 	db, err = sqlx.Open("mysql", config.Username+":"+config.Pass+"@tcp("+config.Host+":"+strconv.Itoa(config.DatabasePort)+")/"+config.Username)
 	if err != nil {
