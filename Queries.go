@@ -5,6 +5,12 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	if uid <= 0 {
 		return -1
 	}
+	go (func() {
+		err := execDB("UPDATE User SET reportedLogs=reportedLogs+?,lastPush=CURRENT_TIMESTAMP WHERE pk_id=?", len(logs), uid)
+		if err != nil {
+			LogCritical("Error updating reported logs: " + err.Error())
+		}
+	})()
 	for _, log := range logs {
 		err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 			uid,
