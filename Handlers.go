@@ -60,13 +60,13 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 					c++
 					continue
 				}
-
+				time := time.Now().Unix()
 				resp := FetchSysLogResponse{
-					Time: time.Now().Unix(),
+					Time: time,
 					Logs: logs,
 				}
 				handleError(sendSuccess(w, resp), w, ServerError, 500)
-				break
+				return
 			}
 		}
 	default:
