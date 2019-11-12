@@ -40,11 +40,51 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	}
 	var syslogs []SyslogEntry
 
-	var and string
+	hasMultipleFilter := len(logRequest.HostnameFilter) > 0 && len(logRequest.TagFilter) > 0
+	hasFilter := len(logRequest.HostnameFilter) > 0 || len(logRequest.TagFilter) > 0
 
-	if len(logRequest.HostnameFilter) > 0 {
+	var fop string
+	if hasMultipleFilter {
+		if logRequest.FilterOperator {
+			fop = "OR "
+		} else {
+			fop = "AND "
+		}
+	}
+
+	var sqlWhere string
+	if hasFilter {
+		sqlWhere = "AND "
+		if len(logRequest.HostnameFilter) > 0 {
+			hostNameFilter := arrToSQL(logRequest.HostnameFilter, "hostname")
+			sqlWhere += hostNameFilter + fop
+		}
+
+		if len(logRequest.TagFilter) > 0 {
+			tagFilter := arrToSQL(logRequest.TagFilter, "tag")
+			sqlWhere += tagFilter
+		}
+	}
+
+	order := "ASC"
+	if logRequest.Reverse {
+		order = "DESC"
+	}
+	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? " + sqlWhere + " ORDER BY date " + order
+	err := queryRows(&syslogs, sqlQuery, logRequest.Since)
+	if err != nil {
+		LogCritical("Couldn't fetch: " + err.Error())
+		return -2, nil
+	}
+
+	return 1, syslogs
+}
+
+func arrToSQL(arr []string, tatbleName string) string {
+	var and string
+	if len(arr) > 0 {
 		negate := false
-		hnFilter := logRequest.HostnameFilter
+		hnFilter := arr
 		negate = strings.HasPrefix(hnFilter[0], "!")
 		if negate {
 			hnFilter[0] = hnFilter[0][1:]
@@ -58,19 +98,9 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		if negate {
 			not = "not"
 		}
-		and = " AND hostname " + not + " in " + inBlock
+		and = tatbleName + " " + not + " in " + inBlock
 	}
-	order := "ASC"
-	if logRequest.Reverse {
-		order = "DESC"
-	}
-	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? "+and+" ORDER BY date "+order, logRequest.Since)
-	if err != nil {
-		LogCritical("Couldn't fetch: " + err.Error())
-		return -2, nil
-	}
-
-	return 1, syslogs
+	return and
 }
 
 //IsUserValid returns userid if valid or -1 if invalid
