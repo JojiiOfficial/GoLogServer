@@ -60,7 +60,11 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		}
 		and = " AND hostname " + not + " in " + inBlock
 	}
-	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? "+and, logRequest.Since)
+	order := "ASC"
+	if logRequest.Reverse {
+		order = "DESC"
+	}
+	err := queryRows(&syslogs, "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? "+and+" ORDER BY date "+order, logRequest.Since)
 	if err != nil {
 		LogCritical("Couldn't fetch: " + err.Error())
 		return -2, nil

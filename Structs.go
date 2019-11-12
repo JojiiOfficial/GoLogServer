@@ -39,6 +39,7 @@ type FetchLogsRequest struct {
 	LogType        int      `json:"lt"`
 	Follow         bool     `json:"foll"`
 	HostnameFilter []string `json:"hnf,omitempty"`
+	Reverse        bool     `json:"r,omitempty"`
 }
 
 //FetchSysLogResponse response for fetchlog
