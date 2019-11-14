@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/mkideal/cli"
 	"github.com/theckman/go-ipdata"
@@ -78,7 +79,7 @@ var runCMD = &cli.Command{
 				LogInfo("Server started TLS on port (" + tlsprt + ")")
 			})()
 		}
-
+		initAutoDeleteTimer(*config)
 		if config.HTTPPort < 2 {
 			LogError("HTTP port must be bigger than 1")
 			os.Exit(1)
@@ -108,4 +109,24 @@ func checkConfig(configFile string) (exit bool, config *Config) {
 		return true, nil
 	}
 	return false, config
+}
+
+func initAutoDeleteTimer(config Config) {
+	if config.DeleteLogsAfter == 0 {
+		return
+	}
+	LogInfo("Deleting logs after " + strconv.Itoa(config.DeleteLogsAfter) + "h")
+	go (func() {
+		timer := time.Tick(1 * time.Hour)
+		for {
+			minTime := time.Now().Unix() - int64(config.DeleteLogsAfter*3600)
+			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
+			if err != nil {
+				LogError("Error deleting old logs: " + err.Error())
+			} else {
+				LogInfo("Deleted old logs")
+			}
+			<-timer
+		}
+	})()
 }

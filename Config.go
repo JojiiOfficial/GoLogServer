@@ -9,16 +9,17 @@ import (
 
 //Config config for the server
 type Config struct {
-	Host          string `json:"host"`
-	Username      string `json:"username"`
-	Pass          string `json:"pass"`
-	DatabasePort  int    `json:"dbport"`
-	CertFile      string `json:"cert"`
-	KeyFile       string `json:"key"`
-	IPdataAPIKey  string `json:"ipdataAPIkey"`
-	ShowTimeInLog bool   `json:"showLogTime"`
-	HTTPPort      int    `json:"port"`
-	TLSPort       int    `json:"porttls"`
+	Host            string `json:"host"`
+	Username        string `json:"username"`
+	Pass            string `json:"pass"`
+	DatabasePort    int    `json:"dbport"`
+	CertFile        string `json:"cert"`
+	KeyFile         string `json:"key"`
+	IPdataAPIKey    string `json:"ipdataAPIkey"`
+	ShowTimeInLog   bool   `json:"showLogTime"`
+	HTTPPort        int    `json:"port"`
+	TLSPort         int    `json:"porttls"`
+	DeleteLogsAfter int    `json:"deleteLogsAfter"`
 }
 
 func createConfig(configFile string) error {
