@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -70,7 +71,11 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	if logRequest.Reverse {
 		order = "DESC"
 	}
-	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? " + sqlWhere + " ORDER BY date " + order
+	var end string
+	if logRequest.Limit > 0 {
+		end = " LIMIT " + strconv.Itoa(logRequest.Limit)
+	}
+	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? " + sqlWhere + " ORDER BY date " + order + end
 	err := queryRows(&syslogs, sqlQuery, logRequest.Since)
 	if err != nil {
 		LogCritical("Couldn't fetch: " + err.Error())

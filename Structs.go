@@ -42,6 +42,7 @@ type FetchLogsRequest struct {
 	TagFilter      []string `json:"tf,omitempty"`
 	Reverse        bool     `json:"r,omitempty"`
 	FilterOperator bool     `json:"fi,omitempty"`
+	Limit          int      `json:"lm,omitempty"`
 }
 
 //FetchSysLogResponse response for fetchlog
