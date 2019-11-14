@@ -41,8 +41,13 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	}
 	var syslogs []SyslogEntry
 
-	hasMultipleFilter := len(logRequest.HostnameFilter) > 0 && len(logRequest.TagFilter) > 0
-	hasFilter := len(logRequest.HostnameFilter) > 0 || len(logRequest.TagFilter) > 0
+	hasMultipleFilter := getBoolCount([]bool{
+		len(logRequest.HostnameFilter) > 0,
+		len(logRequest.TagFilter) > 0,
+		len(logRequest.MessageFilter) > 0,
+	}) > 1
+
+	hasFilter := len(logRequest.HostnameFilter) > 0 || len(logRequest.TagFilter) > 0 || len(logRequest.MessageFilter) > 0
 
 	var fop string
 	if hasMultipleFilter {
@@ -63,7 +68,15 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 
 		if len(logRequest.TagFilter) > 0 {
 			tagFilter := arrToSQL(logRequest.TagFilter, "tag")
-			sqlWhere += tagFilter
+			sqlWhere += tagFilter + fop
+		}
+
+		if len(logRequest.MessageFilter) > 0 {
+			messageFilter := filterToContains(logRequest.MessageFilter, "message")
+			sqlWhere += messageFilter + fop
+		}
+		if strings.HasSuffix(sqlWhere, fop) {
+			sqlWhere = sqlWhere[:len(sqlWhere)-len(fop)]
 		}
 	}
 
@@ -81,29 +94,69 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		LogCritical("Couldn't fetch: " + err.Error())
 		return -2, nil
 	}
-
 	return 1, syslogs
 }
 
-func arrToSQL(arr []string, tatbleName string) string {
+func getBoolCount(arr []bool) int {
+	if len(arr) == 0 {
+		return 0
+	}
+	var c int
+	for _, v := range arr {
+		if v {
+			c++
+		}
+	}
+	return c
+}
+func filterInpArr(arr []string) (negate bool, data []string) {
+	if len(arr) == 0 {
+		return false, arr
+	}
+	data = make([]string, len(arr))
+	for i, d := range arr {
+		data[i] = d
+	}
+	negate = strings.HasPrefix(data[0], "!")
+	if negate {
+		data[0] = data[0][1:]
+	}
+	for i, s := range data {
+		data[i] = EscapeSpecialChars(s)
+	}
+	return
+}
+
+func filterToContains(arr []string, tableName string) string {
 	var and string
 	if len(arr) > 0 {
-		negate := false
-		hnFilter := arr
-		negate = strings.HasPrefix(hnFilter[0], "!")
-		if negate {
-			hnFilter[0] = hnFilter[0][1:]
+		negate, hnFilter := filterInpArr(arr)
+		for _, s := range hnFilter {
+			and += s + "|"
 		}
+		var not string
+		if negate {
+			not = " NOT"
+		}
+		and = tableName + not + " REGEXP " + "\"" + and[:len(and)-1] + "\""
+	}
+	return and
+}
+
+func arrToSQL(arr []string, tableName string) string {
+	var and string
+	if len(arr) > 0 {
+		negate, hnFilter := filterInpArr(arr)
 		inBlock := "("
 		for _, e := range hnFilter {
-			inBlock += "\"" + EscapeSpecialChars(e) + "\","
+			inBlock += "\"" + e + "\","
 		}
-		inBlock = inBlock[:len(inBlock)-1] + ")"
+		inBlock = inBlock[:len(inBlock)-1] + ") "
 		not := ""
 		if negate {
 			not = "not"
 		}
-		and = tatbleName + " " + not + " in " + inBlock
+		and = tableName + " " + not + " in " + inBlock
 	}
 	return and
 }
