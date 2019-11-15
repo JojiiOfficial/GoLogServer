@@ -90,6 +90,7 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		messID := <-messC
 		if lastMessage == messID && messID != 0 {
 			var lgID int
+			lastMessage = messID
 			err := queryRow(&lgID, "SELECT MAX(pk_id) FROM SystemdLog WHERE message=?", messID)
 			if err != nil {
 				LogCritical("Error getting syslogid: " + err.Error())
