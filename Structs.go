@@ -30,6 +30,7 @@ type SyslogEntry struct {
 	PID      int    `json:"p"`
 	LogLevel int    `json:"l"`
 	Message  string `json:"m"`
+	Count    int    `json:"c"`
 }
 
 //FetchLogsRequest fetches logs from the server

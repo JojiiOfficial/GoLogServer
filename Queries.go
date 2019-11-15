@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var hostnameMap = make(map[string]int)
-var tagMap = make(map[string]int)
+var hostnameMap = make(map[string]uint)
+var tagMap = make(map[string]uint)
+var lastMessage uint
 
 func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	uid := IsUserValid(token)
@@ -22,10 +22,10 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		}
 	})()
 	for _, log := range logs {
-		messC := make(chan int, 1)
+		messC := make(chan uint, 1)
 
-		go (func(chann chan int) {
-			var messID int
+		go (func(chann chan uint) {
+			var messID uint
 			queryRow(&messID, "SELECT pk_id FROM SystemdMessage WHERE value=?", log.Message)
 			if messID == 0 {
 				err := execDB("INSERT INTO SystemdMessage (value) VALUES(?)", log.Message)
@@ -42,45 +42,74 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 
 		hstname, hs := hostnameMap[log.Hostname]
 		if !hs {
-			var hstid int
-			err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
-			if err != nil {
-				panic(err)
+			var htsDI uint
+			queryRow(&htsDI, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
+			if htsDI > 0 {
+				hstname = htsDI
+				hostnameMap[log.Hostname] = htsDI
+			} else {
+				var hstid uint
+				err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
+				if err != nil {
+					panic(err)
+				}
+				err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
+				if err != nil {
+					panic(err)
+				}
+				hostnameMap[log.Hostname] = hstid
+				hstname = hstid
 			}
-			err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
-			if err != nil {
-				panic(err)
-			}
-			hostnameMap[log.Hostname] = hstid
-			hstname = hstid
 		}
 		tgname, tg := tagMap[log.Tag]
 		if !tg {
-			var tgid int
-			err := execDB("INSERT INTO SystemdTag (value) VALUES(?)", log.Tag)
-			if err != nil {
-				panic(err)
+			var tsdID uint
+			queryRow(&tsdID, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
+			if tsdID > 0 {
+				tgname = tsdID
+				tagMap[log.Tag] = tsdID
+			} else {
+				var tgid uint
+				err := execDB("INSERT INTO SystemdTag (value) VALUES(?)", log.Tag)
+				if err != nil {
+					panic(err)
+				}
+				err = queryRow(&tgid, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
+				if err != nil {
+					panic(err)
+				}
+				tagMap[log.Tag] = tgid
+				tgname = tgid
 			}
-			err = queryRow(&tgid, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
-			if err != nil {
-				panic(err)
-			}
-			tagMap[log.Tag] = tgid
-			tgname = tgid
 		}
 		messID := <-messC
-		err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
-			uid,
-			(int64(log.Date) + startTime),
-			hstname,
-			tgname,
-			log.PID,
-			log.LogLevel,
-			messID,
-		)
-		if err != nil {
-			LogCritical("Error inserting SystemdLog: " + err.Error())
-			return -1
+		if lastMessage == messID && messID != 0 {
+			var lgID int
+			err := queryRow(&lgID, "SELECT MAX(pk_id) FROM SystemdLog WHERE message=?", messID)
+			if err != nil {
+				LogCritical("Error getting syslogid: " + err.Error())
+				return -1
+			}
+			err = execDB("INSERT INTO SystemdMsgCount (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
+			if err != nil {
+				LogCritical("Error updating systemdMsgCount: " + err.Error())
+				return -1
+			}
+		} else {
+			lastMessage = messID
+			err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
+				uid,
+				(int64(log.Date) + startTime),
+				hstname,
+				tgname,
+				log.PID,
+				log.LogLevel,
+				messID,
+			)
+			if err != nil {
+				LogCritical("Error inserting SystemdLog: " + err.Error())
+				return -1
+			}
 		}
 	}
 	return 1
@@ -161,11 +190,14 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	sqlQuery := "SELECT date," +
 		"(SELECT value FROM SystemdHostname WHERE pk_id=hostname) as hostname, " +
 		"(SELECT value FROM SystemdTag WHERE pk_id=tag) as tag, pid, loglevel, " +
-		"(SELECT value FROM SystemdMessage WHERE pk_id=message) as message FROM SystemdLog " +
+		"(SELECT value FROM SystemdMessage WHERE pk_id=message) as message," +
+		"IFNULL((SELECT count FROM SystemdMsgCount WHERE SystemdMsgCount.msgID=pk_id),1) as count " +
+		"FROM SystemdLog " +
+		"LEFT JOIN SystemdMsgCount ON SystemdMsgCount.msgID=SystemdLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
 		"ORDER BY date " + order + end
-	fmt.Println(sqlQuery)
+
 	until := logRequest.Until
 	if until == 0 {
 		until = time.Now().Unix() + 1
