@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+var hostnameMap = make(map[string]int)
+var tagMap = make(map[string]int)
+
 func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	uid := IsUserValid(token)
 	if uid <= 0 {
@@ -18,11 +21,39 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		}
 	})()
 	for _, log := range logs {
+		hstname, hs := hostnameMap[log.Hostname]
+		if !hs {
+			var hstid int
+			err := execDB("INSERT INTO Hostname (name) VALUES(?)", log.Hostname)
+			if err != nil {
+				panic(err)
+			}
+			err = queryRow(&hstid, "SELECT MAX(pk_id) FROM Hostname WHERE name=?", log.Hostname)
+			if err != nil {
+				panic(err)
+			}
+			hostnameMap[log.Hostname] = hstid
+			hstname = hstid
+		}
+		tgname, tg := tagMap[log.Tag]
+		if !tg {
+			var tgid int
+			err := execDB("INSERT INTO Tag (name) VALUES(?)", log.Tag)
+			if err != nil {
+				panic(err)
+			}
+			err = queryRow(&tgid, "SELECT MAX(pk_id) FROM Tag WHERE name=?", log.Tag)
+			if err != nil {
+				panic(err)
+			}
+			tagMap[log.Tag] = tgid
+			tgname = tgid
+		}
 		err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 			uid,
 			(int64(log.Date) + startTime),
-			log.Hostname,
-			log.Tag,
+			hstname,
+			tgname,
 			log.PID,
 			log.LogLevel,
 			log.Message,
@@ -59,16 +90,16 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		}
 	}
 	var sqlWhere string
+	var hostnameWHERE string
+	var tagWhere string
 	if hasFilter {
 		sqlWhere = "AND ( "
 		if len(logRequest.HostnameFilter) > 0 {
-			hostNameFilter := arrToSQL(logRequest.HostnameFilter, "hostname")
-			sqlWhere += hostNameFilter + fop
+			hostnameWHERE = arrToSQL(logRequest.HostnameFilter)
 		}
 
 		if len(logRequest.TagFilter) > 0 {
-			tagFilter := arrToSQL(logRequest.TagFilter, "tag")
-			sqlWhere += tagFilter + fop
+			tagWhere = arrToSQL(logRequest.TagFilter)
 		}
 
 		if len(logRequest.MessageFilter) > 0 {
@@ -89,7 +120,11 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	if logRequest.Limit > 0 {
 		end = " LIMIT " + strconv.Itoa(logRequest.Limit)
 	}
-	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? AND date <= ? " + sqlWhere + " ORDER BY date " + order + end
+	sqlQuery := "SELECT date, (SELECT name FROM Hostname WHERE pk_id=hostname) as hostname, (SELECT name FROM Tag WHERE pk_id=tag) as tag, pid, loglevel, message FROM SystemdLog " +
+		"WHERE date > ? AND date <= ? AND " +
+		"(hostname in (SELECT pk_id FROM Hostname" + hostnameWHERE + ")" + ") AND " +
+		"(tag in (SELECT pk_id FROM Tag" + tagWhere + ")" + ") " +
+		"ORDER BY date " + order + end
 	until := logRequest.Until
 	if until == 0 {
 		until = time.Now().Unix() + 1
@@ -148,7 +183,7 @@ func filterToContains(arr []string, tableName string) string {
 	return and
 }
 
-func arrToSQL(arr []string, tableName string) string {
+func arrToSQL(arr []string) string {
 	var and string
 	if len(arr) > 0 {
 		negate, hnFilter := filterInpArr(arr)
@@ -161,7 +196,7 @@ func arrToSQL(arr []string, tableName string) string {
 		if negate {
 			not = "not"
 		}
-		and = tableName + " " + not + " in " + inBlock
+		and = " WHERE name " + not + " in " + inBlock
 	}
 	return and
 }
