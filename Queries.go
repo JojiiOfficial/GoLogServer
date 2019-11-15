@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -21,14 +22,32 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		}
 	})()
 	for _, log := range logs {
+		messC := make(chan int, 1)
+
+		go (func(chann chan int) {
+			var messID int
+			queryRow(&messID, "SELECT pk_id FROM SystemdMessage WHERE value=?", log.Message)
+			if messID == 0 {
+				err := execDB("INSERT INTO SystemdMessage (value) VALUES(?)", log.Message)
+				if err != nil {
+					panic(err)
+				}
+				err = queryRow(&messID, "SELECT MAX(pk_id) FROM SystemdMessage WHERE value=?", log.Message)
+				if err != nil {
+					panic(err)
+				}
+			}
+			messC <- messID
+		})(messC)
+
 		hstname, hs := hostnameMap[log.Hostname]
 		if !hs {
 			var hstid int
-			err := execDB("INSERT INTO Hostname (name) VALUES(?)", log.Hostname)
+			err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
 			if err != nil {
 				panic(err)
 			}
-			err = queryRow(&hstid, "SELECT MAX(pk_id) FROM Hostname WHERE name=?", log.Hostname)
+			err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
 			if err != nil {
 				panic(err)
 			}
@@ -38,17 +57,18 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		tgname, tg := tagMap[log.Tag]
 		if !tg {
 			var tgid int
-			err := execDB("INSERT INTO Tag (name) VALUES(?)", log.Tag)
+			err := execDB("INSERT INTO SystemdTag (value) VALUES(?)", log.Tag)
 			if err != nil {
 				panic(err)
 			}
-			err = queryRow(&tgid, "SELECT MAX(pk_id) FROM Tag WHERE name=?", log.Tag)
+			err = queryRow(&tgid, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
 			if err != nil {
 				panic(err)
 			}
 			tagMap[log.Tag] = tgid
 			tgname = tgid
 		}
+		messID := <-messC
 		err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 			uid,
 			(int64(log.Date) + startTime),
@@ -56,7 +76,7 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 			tgname,
 			log.PID,
 			log.LogLevel,
-			log.Message,
+			messID,
 		)
 		if err != nil {
 			LogCritical("Error inserting SystemdLog: " + err.Error())
@@ -73,43 +93,40 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	}
 	var syslogs []SyslogEntry
 
+	hasMessageFilter := len(logRequest.MessageFilter) > 0
+	hasTagFilter := len(logRequest.TagFilter) > 0
+	hasHostnameFilter := len(logRequest.HostnameFilter) > 0
+
 	hasMultipleFilter := getBoolCount([]bool{
-		len(logRequest.HostnameFilter) > 0,
-		len(logRequest.TagFilter) > 0,
-		len(logRequest.MessageFilter) > 0,
+		hasTagFilter,
+		hasHostnameFilter,
+		hasMessageFilter,
 	}) > 1
 
-	hasFilter := len(logRequest.HostnameFilter) > 0 || len(logRequest.TagFilter) > 0 || len(logRequest.MessageFilter) > 0
+	hasFilter := hasHostnameFilter || hasTagFilter || hasMessageFilter
 
 	var fop string
 	if hasMultipleFilter {
 		if logRequest.FilterOperator {
-			fop = "OR "
+			fop = " OR "
 		} else {
-			fop = "AND "
+			fop = " AND "
 		}
 	}
-	var sqlWhere string
-	var hostnameWHERE string
-	var tagWhere string
+
+	var hostnameWHERE, tagWhere, messageWHERE string
 	if hasFilter {
-		sqlWhere = "AND ( "
-		if len(logRequest.HostnameFilter) > 0 {
+		if hasHostnameFilter {
 			hostnameWHERE = arrToSQL(logRequest.HostnameFilter)
 		}
 
-		if len(logRequest.TagFilter) > 0 {
+		if hasTagFilter {
 			tagWhere = arrToSQL(logRequest.TagFilter)
 		}
 
-		if len(logRequest.MessageFilter) > 0 {
-			messageFilter := filterToContains(logRequest.MessageFilter, "message")
-			sqlWhere += messageFilter + fop
+		if hasMessageFilter {
+			messageWHERE = filterToContains(logRequest.MessageFilter)
 		}
-		if strings.HasSuffix(sqlWhere, fop) {
-			sqlWhere = sqlWhere[:len(sqlWhere)-len(fop)]
-		}
-		sqlWhere += ")"
 	}
 
 	order := "ASC"
@@ -120,11 +137,35 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	if logRequest.Limit > 0 {
 		end = " LIMIT " + strconv.Itoa(logRequest.Limit)
 	}
-	sqlQuery := "SELECT date, (SELECT name FROM Hostname WHERE pk_id=hostname) as hostname, (SELECT name FROM Tag WHERE pk_id=tag) as tag, pid, loglevel, message FROM SystemdLog " +
-		"WHERE date > ? AND date <= ? AND " +
-		"(hostname in (SELECT pk_id FROM Hostname" + hostnameWHERE + ")" + ") AND " +
-		"(tag in (SELECT pk_id FROM Tag" + tagWhere + ")" + ") " +
+
+	var sqlWHERE string
+	if hasTagFilter {
+		sqlWHERE += "(tag in (SELECT pk_id FROM SystemdTag" + tagWhere + ")" + ")"
+	}
+
+	if hasMessageFilter {
+		if len(sqlWHERE) > 0 {
+			sqlWHERE += fop
+		}
+		sqlWHERE += "(message in (SELECT pk_id FROM SystemdMessage" + messageWHERE + ")" + ")"
+	}
+	if hasHostnameFilter {
+		if len(sqlWHERE) > 0 {
+			sqlWHERE += fop
+		}
+		sqlWHERE += "(hostname in (SELECT pk_id FROM SystemdHostname" + hostnameWHERE + ")" + ")"
+	}
+	if len(sqlWHERE) > 0 {
+		sqlWHERE = "AND " + sqlWHERE
+	}
+	sqlQuery := "SELECT date," +
+		"(SELECT value FROM SystemdHostname WHERE pk_id=hostname) as hostname, " +
+		"(SELECT value FROM SystemdTag WHERE pk_id=tag) as tag, pid, loglevel, " +
+		"(SELECT value FROM SystemdMessage WHERE pk_id=message) as message FROM SystemdLog " +
+		"WHERE date > ? AND date <= ? " +
+		sqlWHERE +
 		"ORDER BY date " + order + end
+	fmt.Println(sqlQuery)
 	until := logRequest.Until
 	if until == 0 {
 		until = time.Now().Unix() + 1
@@ -167,7 +208,7 @@ func filterInpArr(arr []string) (negate bool, data []string) {
 	return
 }
 
-func filterToContains(arr []string, tableName string) string {
+func filterToContains(arr []string) string {
 	var and string
 	if len(arr) > 0 {
 		negate, hnFilter := filterInpArr(arr)
@@ -178,7 +219,7 @@ func filterToContains(arr []string, tableName string) string {
 		if negate {
 			not = " NOT"
 		}
-		and = tableName + not + " REGEXP " + "\"" + and[:len(and)-1] + "\""
+		and = " WHERE value " + not + " REGEXP " + "\"" + and[:len(and)-1] + "\""
 	}
 	return and
 }
@@ -196,7 +237,7 @@ func arrToSQL(arr []string) string {
 		if negate {
 			not = "not"
 		}
-		and = " WHERE name " + not + " in " + inBlock
+		and = " WHERE value " + not + " in " + inBlock
 	}
 	return and
 }

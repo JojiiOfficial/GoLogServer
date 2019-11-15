@@ -12,7 +12,7 @@ func Logger(inner http.Handler, name string) http.Handler {
 		start := time.Now()
 		inner.ServeHTTP(w, r)
 		dur := time.Since(start)
-		if dur > 500*time.Millisecond && dur < 5*time.Second {
+		if dur > 500*time.Millisecond && dur < 5*time.Second || true {
 			LogInfo("Duration: " + dur.String())
 		}
 	})
