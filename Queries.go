@@ -26,13 +26,13 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 
 		go (func(chann chan uint) {
 			var messID uint
-			queryRow(&messID, "SELECT pk_id FROM SystemdMessage WHERE value=?", log.Message)
+			queryRow(&messID, "SELECT pk_id FROM Message WHERE value=?", log.Message)
 			if messID == 0 {
-				err := execDB("INSERT INTO SystemdMessage (value) VALUES(?)", log.Message)
+				err := execDB("INSERT INTO Message (value) VALUES(?)", log.Message)
 				if err != nil {
 					panic(err)
 				}
-				err = queryRow(&messID, "SELECT MAX(pk_id) FROM SystemdMessage WHERE value=?", log.Message)
+				err = queryRow(&messID, "SELECT MAX(pk_id) FROM Message WHERE value=?", log.Message)
 				if err != nil {
 					panic(err)
 				}
@@ -95,7 +95,7 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 				LogCritical("Error getting syslogid: " + err.Error())
 				return -1
 			}
-			err = execDB("INSERT INTO SystemdMsgCount (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
+			err = execDB("INSERT INTO MsgCount (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
 			if err != nil {
 				LogCritical("Error updating systemdMsgCount: " + err.Error())
 				return -1
@@ -182,7 +182,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		if len(sqlWHERE) > 0 {
 			sqlWHERE += fop
 		}
-		sqlWHERE += "(message in (SELECT pk_id FROM SystemdMessage" + messageWHERE + ")" + ")"
+		sqlWHERE += "(message in (SELECT pk_id FROM Message" + messageWHERE + ")" + ")"
 	}
 	if hasHostnameFilter {
 		if len(sqlWHERE) > 0 {
@@ -196,10 +196,10 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	sqlQuery := "SELECT date," +
 		"(SELECT value FROM SystemdHostname WHERE pk_id=hostname) as hostname, " +
 		"(SELECT value FROM SystemdTag WHERE pk_id=tag) as tag, pid, loglevel, " +
-		"(SELECT value FROM SystemdMessage WHERE pk_id=message) as message," +
-		"IFNULL((SELECT count FROM SystemdMsgCount WHERE SystemdMsgCount.msgID=pk_id),1) as count " +
+		"(SELECT value FROM Message WHERE pk_id=message) as message," +
+		"IFNULL((SELECT count FROM MsgCount WHERE MsgCount.msgID=pk_id),1) as count " +
 		"FROM SystemdLog " +
-		"LEFT JOIN SystemdMsgCount ON SystemdMsgCount.msgID=SystemdLog.pk_id " +
+		"LEFT JOIN MsgCount ON MsgCount.msgID=SystemdLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
 		"ORDER BY date " + order + end
