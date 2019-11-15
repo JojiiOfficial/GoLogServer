@@ -40,27 +40,32 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 			messC <- messID
 		})(messC)
 
-		hstname, hs := hostnameMap[log.Hostname]
-		if !hs {
-			var htsDI uint
-			queryRow(&htsDI, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
-			if htsDI > 0 {
-				hstname = htsDI
-				hostnameMap[log.Hostname] = htsDI
-			} else {
-				var hstid uint
-				err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
-				if err != nil {
-					panic(err)
+		hstnC := make(chan uint, 1)
+		go (func(a chan uint) {
+			hstname, hs := hostnameMap[log.Hostname]
+			if !hs {
+				var htsDI uint
+				queryRow(&htsDI, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
+				if htsDI > 0 {
+					hstname = htsDI
+					hostnameMap[log.Hostname] = htsDI
+				} else {
+					var hstid uint
+					err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
+					if err != nil {
+						panic(err)
+					}
+					err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
+					if err != nil {
+						panic(err)
+					}
+					hostnameMap[log.Hostname] = hstid
+					hstname = hstid
 				}
-				err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
-				if err != nil {
-					panic(err)
-				}
-				hostnameMap[log.Hostname] = hstid
-				hstname = hstid
 			}
-		}
+			a <- hstname
+		})(hstnC)
+
 		tgname, tg := tagMap[log.Tag]
 		if !tg {
 			var tsdID uint
@@ -97,6 +102,7 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 			}
 		} else {
 			lastMessage = messID
+			hstname := <-hstnC
 			err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 				uid,
 				(int64(log.Date) + startTime),
