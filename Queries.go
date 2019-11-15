@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 	"strings"
+	"time"
 )
 
 func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
@@ -57,10 +58,9 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 			fop = "AND "
 		}
 	}
-
 	var sqlWhere string
 	if hasFilter {
-		sqlWhere = "AND "
+		sqlWhere = "AND ( "
 		if len(logRequest.HostnameFilter) > 0 {
 			hostNameFilter := arrToSQL(logRequest.HostnameFilter, "hostname")
 			sqlWhere += hostNameFilter + fop
@@ -78,6 +78,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		if strings.HasSuffix(sqlWhere, fop) {
 			sqlWhere = sqlWhere[:len(sqlWhere)-len(fop)]
 		}
+		sqlWhere += ")"
 	}
 
 	order := "ASC"
@@ -88,8 +89,12 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	if logRequest.Limit > 0 {
 		end = " LIMIT " + strconv.Itoa(logRequest.Limit)
 	}
-	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? " + sqlWhere + " ORDER BY date " + order + end
-	err := queryRows(&syslogs, sqlQuery, logRequest.Since)
+	sqlQuery := "SELECT date, hostname, tag, pid, loglevel, message FROM SystemdLog WHERE date > ? AND date <= ? " + sqlWhere + " ORDER BY date " + order + end
+	until := logRequest.Until
+	if until == 0 {
+		until = time.Now().Unix() + 1
+	}
+	err := queryRows(&syslogs, sqlQuery, logRequest.Since, until)
 	if err != nil {
 		LogCritical("Couldn't fetch: " + err.Error())
 		return -2, nil

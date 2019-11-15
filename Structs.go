@@ -36,6 +36,7 @@ type SyslogEntry struct {
 type FetchLogsRequest struct {
 	Token          string   `json:"t"`
 	Since          int64    `json:"sin"`
+	Until          int64    `json:"unt"`
 	LogType        int      `json:"lt"`
 	Follow         bool     `json:"foll"`
 	HostnameFilter []string `json:"hnf,omitempty"`
