@@ -22,17 +22,6 @@ type StoreSyslogRequest struct {
 	Syslogs   []SyslogEntry `json:"lgs"`
 }
 
-//SyslogEntry a log entry in the syslog
-type SyslogEntry struct {
-	Date     int64  `json:"d" mapstructure:"d"`
-	Hostname string `json:"h" mapstructure:"h"`
-	Tag      string `json:"t" mapstructure:"t"`
-	PID      int    `json:"p" mapstructure:"p"`
-	LogLevel int    `json:"l" mapstructure:"l"`
-	Message  string `json:"m" mapstructure:"m"`
-	Count    int    `json:"c" mapstructure:"c"`
-}
-
 //FetchLogsRequest fetches logs from the server
 type FetchLogsRequest struct {
 	Token          string   `json:"t"`
@@ -48,10 +37,22 @@ type FetchLogsRequest struct {
 	Limit          int      `json:"lm,omitempty"`
 }
 
-//FetchSysLogResponse response for fetchlog
-type FetchSysLogResponse struct {
-	Time int64         `json:"t"`
-	Logs []SyslogEntry `json:"lgs"`
+//FetchLogResponse response for fetchlog
+type FetchLogResponse struct {
+	Time       int64            `json:"t"`
+	SysLogs    []SyslogEntry    `json:"slg,omitempty"`
+	CustomLogs []CustomLogEntry `json:"clg,omitempty"`
+}
+
+//SyslogEntry a log entry in the syslog
+type SyslogEntry struct {
+	Date     int64  `json:"d" mapstructure:"d"`
+	Hostname string `json:"h" mapstructure:"h"`
+	Tag      string `json:"t" mapstructure:"t"`
+	PID      int    `json:"p" mapstructure:"p"`
+	LogLevel int    `json:"l" mapstructure:"l"`
+	Message  string `json:"m" mapstructure:"m"`
+	Count    int    `json:"c" mapstructure:"c"`
 }
 
 //CustomLogEntry a log entry from a custom file
@@ -61,6 +62,7 @@ type CustomLogEntry struct {
 	Tag      string `json:"t,omitempty" mapstructure:"t"`
 	Source   string `json:"s" mapstructure:"s"`
 	Hostname string `json:"h" mapstructure:"h"`
+	Count    int    `json:"c" mapstructure:"c"`
 }
 
 //PushLogsRequest request to push syslog

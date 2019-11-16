@@ -64,7 +64,7 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 		{
 			c := 0
 			for ok := true; ok; ok = fetchRequestData.Follow {
-				status, logs := fetchSyslogLogs(fetchRequestData)
+				status, syslogs, custlogs := fetchLogsDB(fetchRequestData)
 				if status == -1 {
 					sendError("wrong token", w, InvalidTokenError, 422)
 					return
@@ -73,15 +73,16 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				if len(logs) == 0 && fetchRequestData.Follow && c <= 6 {
+				if len(syslogs) == 0 && len(custlogs) == 0 && fetchRequestData.Follow && c <= 6 {
 					time.Sleep(2 * time.Second)
 					c++
 					continue
 				}
 				time := time.Now().Unix()
-				resp := FetchSysLogResponse{
-					Time: time,
-					Logs: logs,
+				resp := FetchLogResponse{
+					Time:       time,
+					CustomLogs: custlogs,
+					SysLogs:    syslogs,
 				}
 				handleError(sendSuccess(w, resp), w, ServerError, 500)
 				return

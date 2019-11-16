@@ -164,12 +164,11 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	return 1
 }
 
-func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
+func fetchLogsDB(logRequest FetchLogsRequest) (int, []SyslogEntry, []CustomLogEntry) {
 	uid := IsUserValid(logRequest.Token)
 	if uid <= 0 {
-		return -1, nil
+		return -1, nil, nil
 	}
-	var syslogs []SyslogEntry
 
 	hasMessageFilter := len(logRequest.MessageFilter) > 0
 	hasTagFilter := len(logRequest.TagFilter) > 0
@@ -231,12 +230,25 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		if len(sqlWHERE) > 0 {
 			sqlWHERE += fop
 		}
-		sqlWHERE += "(hostname in (SELECT pk_id FROM SystemdHostname" + hostnameWHERE + ")" + ")"
+		sqlWHERE += "(hostname in (SELECT pk_id FROM Hostname" + hostnameWHERE + ")" + ")"
 	}
 	if len(sqlWHERE) > 0 {
 		sqlWHERE = "AND " + sqlWHERE
 	}
-	sqlQuery := "SELECT date," +
+
+	customLogQuery := "SELECT date," +
+		"(SELECT value FROM Hostname WHERE pk_id=hostname) as hostname, " +
+		"(SELECT value FROM Tag WHERE pk_id=tag) as tag, " +
+		"(SELECT value FROM Message WHERE pk_id=message) as message," +
+		"ifnull((SELECT value FROM `Source` WHERE pk_id=`src`),\"\") as `source`," +
+		"IFNULL((SELECT count FROM CustLogMsgCount WHERE CustLogMsgCount.msgID=pk_id),1) as count " +
+		"FROM CustomLog " +
+		"LEFT JOIN CustLogMsgCount ON CustLogMsgCount.msgID=CustomLog.pk_id " +
+		"WHERE date > ? AND date <= ? " +
+		sqlWHERE +
+		"ORDER BY date " + order + end
+
+	syslogQuery := "SELECT date," +
 		"(SELECT value FROM Hostname WHERE pk_id=hostname) as hostname, " +
 		"(SELECT value FROM Tag WHERE pk_id=tag) as tag, pid, loglevel, " +
 		"(SELECT value FROM Message WHERE pk_id=message) as message," +
@@ -251,12 +263,21 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	if until == 0 {
 		until = time.Now().Unix() + 1
 	}
-	err := queryRows(&syslogs, sqlQuery, logRequest.Since, until)
+
+	var syslogs []SyslogEntry
+	var custlogs []CustomLogEntry
+
+	err := queryRows(&syslogs, syslogQuery, logRequest.Since, until)
 	if err != nil {
-		LogCritical("Couldn't fetch: " + err.Error())
-		return -2, nil
+		LogCritical("Couldn't fetch syslogs: " + err.Error())
+		return -2, nil, nil
 	}
-	return 1, syslogs
+	err = queryRows(&custlogs, customLogQuery, logRequest.Since, until)
+	if err != nil {
+		LogCritical("Couldn't fetch custlogs: " + err.Error())
+		return -2, nil, nil
+	}
+	return 1, syslogs, custlogs
 }
 
 func getBoolCount(arr []bool) int {
