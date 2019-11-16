@@ -34,6 +34,15 @@ func insertCustomlogs(token string, startTime int64, logs []CustomLogEntry) int 
 		messC := make(chan uint, 1)
 		go insertMessage(log.Message, messC)
 
+		hstnC := make(chan uint, 1)
+		go (func(a chan uint) {
+			hstname, hs := hostnameMap[log.Hostname]
+			if !hs {
+				insertkv(log.Hostname, "Hostname", a)
+			}
+			a <- hstname
+		})(hstnC)
+
 		var tagID uint
 		if len(log.Tag) > 0 {
 			tgname, tg := tagMap[log.Tag]
@@ -68,11 +77,13 @@ func insertCustomlogs(token string, startTime int64, logs []CustomLogEntry) int 
 			}
 		} else {
 			lastCustomlogMessage = messID
-			err := execDB("INSERT INTO CustomLog (client, date, src, tag, message) VALUES (?,?,?,?,?)",
+			hostname := <-hstnC
+			err := execDB("INSERT INTO CustomLog (client, date, src, tag, hostname, message) VALUES (?,?,?,?,?,?)",
 				uid,
 				(int64(log.Date) + startTime),
 				srcID,
 				tagID,
+				hostname,
 				messID,
 			)
 			if err != nil {
@@ -121,7 +132,7 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		go (func(a chan uint) {
 			hstname, hs := hostnameMap[log.Hostname]
 			if !hs {
-				insertkv(log.Hostname, "SystemdHostname", a)
+				insertkv(log.Hostname, "Hostname", a)
 			}
 			a <- hstname
 		})(hstnC)
@@ -226,7 +237,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		sqlWHERE = "AND " + sqlWHERE
 	}
 	sqlQuery := "SELECT date," +
-		"(SELECT value FROM SystemdHostname WHERE pk_id=hostname) as hostname, " +
+		"(SELECT value FROM Hostname WHERE pk_id=hostname) as hostname, " +
 		"(SELECT value FROM Tag WHERE pk_id=tag) as tag, pid, loglevel, " +
 		"(SELECT value FROM Message WHERE pk_id=message) as message," +
 		"IFNULL((SELECT count FROM SyslogMsgCount WHERE SyslogMsgCount.msgID=pk_id),1) as count " +

@@ -56,10 +56,11 @@ type FetchSysLogResponse struct {
 
 //CustomLogEntry a log entry from a custom file
 type CustomLogEntry struct {
-	Date    int    `json:"d" mapstructure:"d"`
-	Message string `json:"m" mapstructure:"m"`
-	Tag     string `json:"t,omitempty" mapstructure:"t"`
-	Source  string `json:"s" mapstructure:"s"`
+	Date     int    `json:"d" mapstructure:"d"`
+	Message  string `json:"m" mapstructure:"m"`
+	Tag      string `json:"t,omitempty" mapstructure:"t"`
+	Source   string `json:"s" mapstructure:"s"`
+	Hostname string `json:"h" mapstructure:"h"`
 }
 
 //PushLogsRequest request to push syslog
