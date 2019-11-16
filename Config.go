@@ -15,7 +15,6 @@ type Config struct {
 	DatabasePort    int    `json:"dbport"`
 	CertFile        string `json:"cert"`
 	KeyFile         string `json:"key"`
-	IPdataAPIKey    string `json:"ipdataAPIkey"`
 	ShowTimeInLog   bool   `json:"showLogTime"`
 	HTTPPort        int    `json:"port"`
 	TLSPort         int    `json:"porttls"`
