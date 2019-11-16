@@ -9,10 +9,14 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/mitchellh/mapstructure"
 )
 
-func pushSyslog(w http.ResponseWriter, r *http.Request) {
-	var report StoreSyslogRequest
+func pushLogs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	var report PushLogsRequest
 	if !handleUserInput(w, r, &report) {
 		return
 	}
@@ -20,12 +24,26 @@ func pushSyslog(w http.ResponseWriter, r *http.Request) {
 		sendError("input missing", w, WrongInputFormatError, 422)
 		return
 	}
+
 	if len(report.Token) != 24 {
 		sendError("wrong token length", w, InvalidTokenError, 422)
 		return
 	}
-	cod := insertSyslogs(report.Token, report.StartTime, report.Syslogs)
-	handleError(sendSuccess(w, cod), w, ServerError, 500)
+
+	logType := vars["logtype"]
+	status := -1
+
+	if logType == "syslog" {
+		var syslogs []SyslogEntry
+		mapstructure.Decode(report.Logs, &syslogs)
+		status = insertSyslogs(report.Token, report.StartTime, syslogs)
+	} else if logType == "custom" {
+		var customLogs []CustomLogEntry
+		mapstructure.Decode(report.Logs, &customLogs)
+		status = insertCustomlogs(report.Token, report.StartTime, customLogs)
+	}
+
+	handleError(sendSuccess(w, status), w, ServerError, 500)
 }
 
 func fetchLogs(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +171,10 @@ func isEmptyValue(e reflect.Value) bool {
 			return false
 		}
 	case reflect.Bool:
+		{
+			return false
+		}
+	case reflect.Interface:
 		{
 			return false
 		}

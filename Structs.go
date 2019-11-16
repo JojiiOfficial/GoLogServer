@@ -24,13 +24,13 @@ type StoreSyslogRequest struct {
 
 //SyslogEntry a log entry in the syslog
 type SyslogEntry struct {
-	Date     int64  `json:"d"`
-	Hostname string `json:"h"`
-	Tag      string `json:"t"`
-	PID      int    `json:"p"`
-	LogLevel int    `json:"l"`
-	Message  string `json:"m"`
-	Count    int    `json:"c"`
+	Date     int64  `json:"d" mapstructure:"d"`
+	Hostname string `json:"h" mapstructure:"h"`
+	Tag      string `json:"t" mapstructure:"t"`
+	PID      int    `json:"p" mapstructure:"p"`
+	LogLevel int    `json:"l" mapstructure:"l"`
+	Message  string `json:"m" mapstructure:"m"`
+	Count    int    `json:"c" mapstructure:"c"`
 }
 
 //FetchLogsRequest fetches logs from the server
@@ -52,4 +52,19 @@ type FetchLogsRequest struct {
 type FetchSysLogResponse struct {
 	Time int64         `json:"t"`
 	Logs []SyslogEntry `json:"lgs"`
+}
+
+//CustomLogEntry a log entry from a custom file
+type CustomLogEntry struct {
+	Date    int    `json:"d" mapstructure:"d"`
+	Message string `json:"m" mapstructure:"m"`
+	Tag     string `json:"t,omitempty" mapstructure:"t"`
+	Source  string `json:"s" mapstructure:"s"`
+}
+
+//PushLogsRequest request to push syslog
+type PushLogsRequest struct {
+	Token     string      `json:"t"`
+	StartTime int64       `json:"st"`
+	Logs      interface{} `json:"lgs"`
 }

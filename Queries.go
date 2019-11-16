@@ -8,7 +8,82 @@ import (
 
 var hostnameMap = make(map[string]uint)
 var tagMap = make(map[string]uint)
-var lastMessage uint
+var sourceMap = make(map[string]uint)
+
+var lastSyslogMessage uint
+var lastCustomlogMessage uint
+
+func insertCustomlogs(token string, startTime int64, logs []CustomLogEntry) int {
+	uid := IsUserValid(token)
+	if uid <= 0 {
+		return -1
+	}
+
+	go (func() {
+		err := execDB("UPDATE User SET reportedLogs=reportedLogs+?,lastPush=CURRENT_TIMESTAMP WHERE pk_id=?", len(logs), uid)
+		if err != nil {
+			LogCritical("Error updating reported logs: " + err.Error())
+		}
+	})()
+
+	for _, log := range logs {
+		if len(log.Message) == 0 {
+			continue
+		}
+
+		messC := make(chan uint, 1)
+		go insertMessage(log.Message, messC)
+
+		var tagID uint
+		if len(log.Tag) > 0 {
+			tgname, tg := tagMap[log.Tag]
+			if !tg {
+				tagC := make(chan uint, 1)
+				insertkv(log.Tag, "Tag", tagC)
+				tagID = <-tagC
+				tagMap[log.Tag] = tagID
+			} else {
+				tagID = tgname
+			}
+		}
+
+		var srcID uint
+		if len(log.Source) > 0 {
+			srcName, tg := sourceMap[log.Source]
+			if !tg {
+				srcC := make(chan uint, 1)
+				insertkv(log.Source, "Source", srcC)
+				srcID = <-srcC
+				sourceMap[log.Source] = srcID
+			} else {
+				srcID = srcName
+			}
+		}
+
+		messID := <-messC
+		if lastCustomlogMessage == messID && messID != 0 {
+			e := updateMessageCount(lastCustomlogMessage, "CustomLog", "CustLogMsgCount")
+			if e == -1 {
+				return -1
+			}
+		} else {
+			lastCustomlogMessage = messID
+			err := execDB("INSERT INTO CustomLog (client, date, src, tag, message) VALUES (?,?,?,?,?)",
+				uid,
+				(int64(log.Date) + startTime),
+				srcID,
+				tagID,
+				messID,
+			)
+			if err != nil {
+				LogCritical("Error inserting SystemdLog: " + err.Error())
+				return -1
+			}
+		}
+
+	}
+	return 1
+}
 
 func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	uid := IsUserValid(token)
@@ -22,93 +97,49 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 		}
 	})()
 	for _, log := range logs {
-		messC := make(chan uint, 1)
+		if len(log.Message) == 0 {
+			continue
+		}
 
-		go (func(chann chan uint) {
-			var messID uint
-			queryRow(&messID, "SELECT pk_id FROM Message WHERE value=?", log.Message)
-			if messID == 0 {
-				err := execDB("INSERT INTO Message (value) VALUES(?)", log.Message)
-				if err != nil {
-					panic(err)
-				}
-				err = queryRow(&messID, "SELECT MAX(pk_id) FROM Message WHERE value=?", log.Message)
-				if err != nil {
-					panic(err)
-				}
+		messC := make(chan uint, 1)
+		go insertMessage(log.Message, messC)
+
+		var tagID uint
+		if len(log.Tag) > 0 {
+			tgname, tg := tagMap[log.Tag]
+			if !tg {
+				tagC := make(chan uint, 1)
+				insertkv(log.Tag, "Tag", tagC)
+				tagID = <-tagC
+				tagMap[log.Tag] = tagID
+			} else {
+				tagID = tgname
 			}
-			messC <- messID
-		})(messC)
+		}
 
 		hstnC := make(chan uint, 1)
 		go (func(a chan uint) {
 			hstname, hs := hostnameMap[log.Hostname]
 			if !hs {
-				var htsDI uint
-				queryRow(&htsDI, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
-				if htsDI > 0 {
-					hstname = htsDI
-					hostnameMap[log.Hostname] = htsDI
-				} else {
-					var hstid uint
-					err := execDB("INSERT INTO SystemdHostname (value) VALUES(?)", log.Hostname)
-					if err != nil {
-						panic(err)
-					}
-					err = queryRow(&hstid, "SELECT MAX(pk_id) FROM SystemdHostname WHERE value=?", log.Hostname)
-					if err != nil {
-						panic(err)
-					}
-					hostnameMap[log.Hostname] = hstid
-					hstname = hstid
-				}
+				insertkv(log.Hostname, "SystemdHostname", a)
 			}
 			a <- hstname
 		})(hstnC)
 
-		tgname, tg := tagMap[log.Tag]
-		if !tg {
-			var tsdID uint
-			queryRow(&tsdID, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
-			if tsdID > 0 {
-				tgname = tsdID
-				tagMap[log.Tag] = tsdID
-			} else {
-				var tgid uint
-				err := execDB("INSERT INTO SystemdTag (value) VALUES(?)", log.Tag)
-				if err != nil {
-					panic(err)
-				}
-				err = queryRow(&tgid, "SELECT MAX(pk_id) FROM SystemdTag WHERE value=?", log.Tag)
-				if err != nil {
-					panic(err)
-				}
-				tagMap[log.Tag] = tgid
-				tgname = tgid
-			}
-		}
 		messID := <-messC
-		if lastMessage == messID && messID != 0 {
-			var lgID int
-			lastMessage = messID
-			err := queryRow(&lgID, "SELECT MAX(pk_id) FROM SystemdLog WHERE message=?", messID)
-			if err != nil {
-				LogCritical("Error getting syslogid: " + err.Error())
-				return -1
-			}
-			err = execDB("INSERT INTO MsgCount (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
-			if err != nil {
-				LogCritical("Error updating systemdMsgCount: " + err.Error())
+		if lastSyslogMessage == messID && messID != 0 {
+			e := updateMessageCount(lastSyslogMessage, "SystemdLog", "SyslogMsgCount")
+			if e == -1 {
 				return -1
 			}
 		} else {
-			lastMessage = messID
+			lastSyslogMessage = messID
 			hstname := <-hstnC
 			err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 				uid,
 				(int64(log.Date) + startTime),
 				hstname,
-				tgname,
+				tagID,
 				log.PID,
 				log.LogLevel,
 				messID,
@@ -176,7 +207,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 
 	var sqlWHERE string
 	if hasTagFilter {
-		sqlWHERE += "(tag in (SELECT pk_id FROM SystemdTag" + tagWhere + ")" + ")"
+		sqlWHERE += "(tag in (SELECT pk_id FROM Tag" + tagWhere + ")" + ")"
 	}
 
 	if hasMessageFilter {
@@ -196,11 +227,11 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 	}
 	sqlQuery := "SELECT date," +
 		"(SELECT value FROM SystemdHostname WHERE pk_id=hostname) as hostname, " +
-		"(SELECT value FROM SystemdTag WHERE pk_id=tag) as tag, pid, loglevel, " +
+		"(SELECT value FROM Tag WHERE pk_id=tag) as tag, pid, loglevel, " +
 		"(SELECT value FROM Message WHERE pk_id=message) as message," +
-		"IFNULL((SELECT count FROM MsgCount WHERE MsgCount.msgID=pk_id),1) as count " +
+		"IFNULL((SELECT count FROM SyslogMsgCount WHERE SyslogMsgCount.msgID=pk_id),1) as count " +
 		"FROM SystemdLog " +
-		"LEFT JOIN MsgCount ON MsgCount.msgID=SystemdLog.pk_id " +
+		"LEFT JOIN MsgCount ON SyslogMsgCount.msgID=SystemdLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
 		"ORDER BY date " + order + end
@@ -292,4 +323,50 @@ func IsUserValid(token string) int {
 		panic(err)
 	}
 	return uid
+}
+
+func insertMessage(message string, chann chan uint) {
+	var messID uint
+	queryRow(&messID, "SELECT pk_id FROM Message WHERE value=?", message)
+	if messID == 0 {
+		err := execDB("INSERT INTO Message (value) VALUES(?)", message)
+		if err != nil {
+			panic(err)
+		}
+		err = queryRow(&messID, "SELECT MAX(pk_id) FROM Message WHERE value=?", message)
+		if err != nil {
+			panic(err)
+		}
+	}
+	chann <- messID
+}
+
+func insertkv(val, tableName string, chann chan uint) {
+	var tsdID uint
+	queryRow(&tsdID, "SELECT MAX(pk_id) FROM "+tableName+" WHERE value=?", val)
+	if tsdID == 0 {
+		err := execDB("INSERT INTO "+tableName+" (value) VALUES(?)", val)
+		if err != nil {
+			panic(err)
+		}
+		err = queryRow(&tsdID, "SELECT MAX(pk_id) FROM "+tableName+" WHERE value=?", val)
+		if err != nil {
+			panic(err)
+		}
+	}
+	chann <- tsdID
+}
+func updateMessageCount(messID uint, logTableName, countTableName string) int {
+	var lgID uint
+	err := queryRow(&lgID, "SELECT MAX(pk_id) FROM "+logTableName+" WHERE message=?", messID)
+	if err != nil {
+		LogCritical("Error getting logid: " + err.Error())
+		return -1
+	}
+	err = execDB("INSERT INTO "+countTableName+" (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
+	if err != nil {
+		LogCritical("Error updating MessCount: " + err.Error())
+		return -1
+	}
+	return 1
 }

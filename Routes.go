@@ -35,15 +35,15 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
-		"pushSyslog",
+		"pushLogs",
 		"POST",
-		"/push/syslog",
-		pushSyslog,
+		"/glog/push/logs/{logtype}",
+		pushLogs,
 	},
 	Route{
 		"fetch",
 		"POST",
-		"/fetch",
+		"/glog/fetch",
 		fetchLogs,
 	},
 }
