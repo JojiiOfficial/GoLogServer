@@ -231,7 +231,7 @@ func fetchSyslogLogs(logRequest FetchLogsRequest) (int, []SyslogEntry) {
 		"(SELECT value FROM Message WHERE pk_id=message) as message," +
 		"IFNULL((SELECT count FROM SyslogMsgCount WHERE SyslogMsgCount.msgID=pk_id),1) as count " +
 		"FROM SystemdLog " +
-		"LEFT JOIN MsgCount ON SyslogMsgCount.msgID=SystemdLog.pk_id " +
+		"LEFT JOIN SyslogMsgCount ON SyslogMsgCount.msgID=SystemdLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
 		"ORDER BY date " + order + end
