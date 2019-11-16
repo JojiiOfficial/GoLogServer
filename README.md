@@ -25,7 +25,7 @@ Save the config file and run `./gologserver run` again to check if there are err
 Run `./gologserver install` to create a systemd service if you want
 <br>
 # User 
-Logging daemons need a token. You have to add rows in the user table to activate token<br>
+Logging daemons need a token. You have to add a row into the user table to activate one (or multiple)<br>
 ```mysql
 INSERT INTO User (username, token) VALUES ('LoggerNameHere', '24ByteTokenHere')
 ```
