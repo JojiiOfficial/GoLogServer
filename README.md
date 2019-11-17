@@ -1,5 +1,5 @@
 # GoLogServer
-GoLogServer is a part of the gologging system. It's a centralized logging system written in go. Daemons ([GoLogD](https://github.com/JojiiOfficial/GoLogD)) push logs to the server. The server stores them and allows you to view them using the [client](https://github.com/JojiiOfficial/GoLogger).
+GoLogServer is a part of the gologging system. It's a centralized logging system written in go. Daemons ([GoLogD](https://github.com/JojiiOfficial/GoLogD)) push logs to the server. The server stores them and allows you to view and filter the logs using the [client](https://github.com/JojiiOfficial/GoLogger).
 
 # Logtypes
 See [GoLogD](https://github.com/JojiiOfficial/GoLogD/blob/master/README.md#logtypes)<br>
