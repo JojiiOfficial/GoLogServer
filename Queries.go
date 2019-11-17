@@ -206,10 +206,6 @@ func fetchLogsDB(logRequest FetchLogsRequest) (int, []SyslogEntry, []CustomLogEn
 		}
 	}
 
-	order := "ASC"
-	if logRequest.Reverse {
-		order = "DESC"
-	}
 	var end string
 	if logRequest.Limit > 0 {
 		end = " LIMIT " + strconv.Itoa(logRequest.Limit)
@@ -246,7 +242,7 @@ func fetchLogsDB(logRequest FetchLogsRequest) (int, []SyslogEntry, []CustomLogEn
 		"LEFT JOIN CustLogMsgCount ON CustLogMsgCount.msgID=CustomLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
-		"ORDER BY date " + order + end
+		"ORDER BY date " + end
 
 	syslogQuery := "SELECT date," +
 		"(SELECT value FROM Hostname WHERE pk_id=hostname) as hostname, " +
@@ -257,7 +253,7 @@ func fetchLogsDB(logRequest FetchLogsRequest) (int, []SyslogEntry, []CustomLogEn
 		"LEFT JOIN SyslogMsgCount ON SyslogMsgCount.msgID=SystemdLog.pk_id " +
 		"WHERE date > ? AND date <= ? " +
 		sqlWHERE +
-		"ORDER BY date " + order + end
+		"ORDER BY date " + end
 
 	until := logRequest.Until
 	if until == 0 {
