@@ -2,10 +2,7 @@
 GoLogServer is a part of the gologging system. It's a centralized logging system written in go. Daemons ([GoLogD](https://github.com/JojiiOfficial/GoLogD)) push logs to the server. The server stores them and allows you to view them using the [client](https://github.com/JojiiOfficial/GoLogger).
 
 # Logtypes
-Currently following logs are supported<br>
-- systemd (syslog/authlog/etc...)
-- every file starting with a timestamp in each row (custom logfiles)
-
+See [GoLogD](https://github.com/JojiiOfficial/GoLogD/blob/master/README.md#logtypes)<br>
 # Install
 Install go 1.13, clone this repository. Then run
 ```go
