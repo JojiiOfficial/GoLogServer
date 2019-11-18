@@ -119,6 +119,7 @@ func initAutoDeleteTimer(config Config) {
 	go (func() {
 		timer := time.Tick(1 * time.Hour)
 		for {
+			<-timer
 			minTime := time.Now().Unix() - int64(config.DeleteLogsAfter*3600)
 			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
 			if err != nil {
@@ -126,7 +127,10 @@ func initAutoDeleteTimer(config Config) {
 			} else {
 				LogInfo("Deleted old logs")
 			}
-			<-timer
+			_, err = db.Exec("DELETE FROM Message WHERE pk_id not in (SELECT message FROM SystemdLog) and pk_id not in (SELECT message FROM CustomLog)")
+			if err != nil {
+				LogError("Error deleting unused messages: " + err.Error())
+			}
 		}
 	})()
 }
