@@ -123,6 +123,11 @@ func initAutoDeleteTimer(config Config) {
 			minTime := time.Now().Unix() - int64(config.DeleteLogsAfter*3600)
 			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
 			if err != nil {
+				LogError("Error deleting old systemdlogs: " + err.Error())
+				continue
+			}
+			_, err = db.Exec("DELETE FROM CustomLog WHERE date < ?", minTime)
+			if err != nil {
 				LogError("Error deleting old logs: " + err.Error())
 			} else {
 				LogInfo("Deleted old logs")
