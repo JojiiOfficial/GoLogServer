@@ -5,9 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/JojiiOfficial/GoLogServer/constants"
+
 	log "github.com/sirupsen/logrus"
 
-	"github.com/JojiiOfficial/GoLogServer/constants"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

@@ -1,11 +1,10 @@
-module GoLogServer
+module github.com/JojiiOfficial/GoLogServer
 
-go 1.13
+go 1.14
 
 require (
 	github.com/Bowery/prompt v0.0.0-20190916142128-fa8279994f75 // indirect
 	github.com/JojiiOfficial/GoAw v1.1.4
-	github.com/JojiiOfficial/SystemdGoService v0.0.0-20191121211619-eb9fa34b37d5 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/go-sql-driver/mysql v1.5.0
