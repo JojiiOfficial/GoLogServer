@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/JojiiOfficial/configService"
 	"os"
+	"time"
+
+	"github.com/JojiiOfficial/configService"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -13,7 +15,7 @@ const defaultConfigFile = "./data/config.yaml"
 type Config struct {
 	Database          dbConfig
 	WebserverConfig   webserverConfig
-	DeleteLogInterval int `json:"deleteLogsAfter"`
+	DeleteLogInterval time.Duration `json:"deleteLogsAfter"`
 }
 
 type dbConfig struct {
@@ -52,6 +54,7 @@ func InitConfig(configFile string) (*Config, bool) {
 			WebserverConfig: webserverConfig{
 				HTTPPort: 80,
 			},
+			DeleteLogInterval: 1 * time.Hour,
 		}
 	}
 
