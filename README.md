@@ -22,6 +22,7 @@ jojii/gologserver:latest
 ```
 <br>
 Run this to create a new container and start the logger
+
 ```bash
 docker run -d --name gologserver \
 --restart=unless-stopped \ 
