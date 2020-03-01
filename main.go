@@ -19,7 +19,7 @@ var (
 	appNoColor   = app.Flag("no-color", "Disable colors").Envar(getEnVar(EnVarNoColor)).Bool()
 	appYes       = app.Flag("yes", "Skips confirmations").Short('y').Envar(getEnVar(EnVarYes)).Bool()
 	appAutoclean = app.Flag("autoclean", "Clean logs automatically").Envar(getEnVar(EnVarAutoClean)).Default("false").Bool()
-	appOnlyClean = app.Flag("only-clean", "Only clean logs").Default("false").Bool()
+	appOnlyClean = app.Flag("only-clean", "Only clean logs").Default("false").Envar(getEnVar(EnVarOnlyClean)).Bool()
 	appCfgFile   = app.
 			Flag("config", "the configuration file for the server").
 			Envar(getEnVar(EnVarConfigFile)).
@@ -42,6 +42,7 @@ const (
 	EnVarYes        = "SKIP_CONFIRM"
 	EnVarConfigFile = "CONFIG"
 	EnVarAutoClean  = "AUTOCLEAN"
+	EnVarOnlyClean  = "ONLYCLEAN"
 )
 
 //Return the variable using the server prefix

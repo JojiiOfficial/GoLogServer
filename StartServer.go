@@ -4,13 +4,15 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/mkideal/cli"
 	log "github.com/sirupsen/logrus"
 	"github.com/theckman/go-ipdata"
-	"github.com/thecodeteam/goodbye"
 )
 
 type runT struct {
@@ -20,25 +22,14 @@ type runT struct {
 var ipdataClient *ipdata.Client
 
 func startServer(config *Config) {
-	ctx := context.Background()
-	defer goodbye.Exit(ctx, -1)
-	goodbye.Notify(ctx)
-	goodbye.Register(func(ctx context.Context, sig os.Signal) {
-		if db != nil {
-			_ = db.Close()
-			log.Info("DB closed")
-		}
-	})
-
 	useTLS := false
 	if len(config.WebserverConfig.CertFile) > 0 {
 		_, err := os.Stat(config.WebserverConfig.CertFile)
 		if err != nil {
-			log.Error("Certfile not found. HTTP only!")
-			useTLS = false
-		} else {
-			useTLS = true
+			log.Error("Certfile not found")
+			return
 		}
+		useTLS = true
 	}
 
 	if len(config.WebserverConfig.KeyFile) > 0 {
@@ -50,19 +41,38 @@ func startServer(config *Config) {
 	}
 
 	router := NewRouter()
+	var httpServer, httpsServer *http.Server
+
+	//Init http server
 	if useTLS {
+		httpsServer = &http.Server{
+			Handler:      router,
+			Addr:         ":" + strconv.Itoa(config.WebserverConfig.TLSPort),
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		}
+	}
+
+	httpServer = &http.Server{
+		Handler:      router,
+		Addr:         ":" + strconv.Itoa(config.WebserverConfig.HTTPPort),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	//Start TLS
+	if useTLS {
+		if config.WebserverConfig.TLSPort < 2 {
+			log.Error("TLS port must be bigger than 1")
+			os.Exit(1)
+		}
+		if config.WebserverConfig.TLSPort == config.WebserverConfig.HTTPPort {
+			log.Fatalln("HTTP port can't be the same as TLS port!")
+			os.Exit(1)
+		}
+
 		go (func() {
-			if config.WebserverConfig.TLSPort < 2 {
-				log.Error("TLS port must be bigger than 1")
-				os.Exit(1)
-			}
-			if config.WebserverConfig.TLSPort == config.WebserverConfig.HTTPPort {
-				log.Fatalln("HTTP port can't be the same as TLS port!")
-				os.Exit(1)
-			}
-			tlsprt := strconv.Itoa(config.WebserverConfig.TLSPort)
-			log.Fatal(http.ListenAndServeTLS(":"+tlsprt, config.WebserverConfig.CertFile, config.WebserverConfig.KeyFile, router))
-			log.Info("Server started TLS on port (" + tlsprt + ")")
+			log.Fatal(httpsServer.ListenAndServeTLS(config.WebserverConfig.CertFile, config.WebserverConfig.KeyFile))
 		})()
 	}
 
@@ -71,17 +81,48 @@ func startServer(config *Config) {
 		initAutoDeleteTimer(config)
 	}
 
-	if config.WebserverConfig.HTTPPort < 2 {
-		log.Error("HTTP port must be bigger than 1")
-		os.Exit(1)
-		return
+	//Start HTTP
+	if config.WebserverConfig.HTTPPort > 2 {
+		log.Info("Server started HTTP on port (" + httpServer.Addr + ")")
+		go (func() {
+			log.Fatal(httpServer.ListenAndServe())
+		})()
 	}
 
-	httpprt := strconv.Itoa(config.WebserverConfig.HTTPPort)
+	awaitExit(db, httpServer, httpsServer)
+}
 
-	log.Info("Server started HTTP on port (" + httpprt + ")")
-	log.Fatal(http.ListenAndServe(":"+httpprt, router))
-	return
+//Shutdown server gracefully
+func awaitExit(db *sqlx.DB, httpServer, httpTLSserver *http.Server) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, os.Interrupt, syscall.SIGKILL, syscall.SIGTERM)
+
+	// await os signal
+	<-signalChan
+
+	// Create a deadline for the await
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
+	log.Info("Shutting down server")
+
+	if httpServer != nil {
+		httpServer.Shutdown(ctx)
+		log.Info("HTTP server shutdown complete")
+	}
+
+	if httpTLSserver != nil {
+		httpTLSserver.Shutdown(ctx)
+		log.Info("HTTPs server shutdown complete")
+	}
+
+	if db != nil && db.DB != nil {
+		db.Close()
+		log.Info("Database shutdown complete")
+	}
+
+	log.Info("Shutting down complete")
+	os.Exit(0)
 }
 
 func initAutoDeleteTimer(config *Config) {
