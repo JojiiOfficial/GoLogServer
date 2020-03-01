@@ -146,48 +146,6 @@ func sendError(erre string, w http.ResponseWriter, message ErrorMessage, statusC
 	_, _ = fmt.Fprintln(w, string(de))
 }
 
-func isStructInvalid(x interface{}) bool {
-	s := reflect.TypeOf(x)
-	for i := s.NumField() - 1; i >= 0; i-- {
-		e := reflect.ValueOf(x).Field(i)
-
-		if hasEmptyValue(e) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasEmptyValue(e reflect.Value) bool {
-	switch e.Type().Kind() {
-	case reflect.String:
-		if e.String() == "" || strings.Trim(e.String(), " ") == "" {
-			return true
-		}
-	case reflect.Array:
-		for j := e.Len() - 1; j >= 0; j-- {
-			isEmpty := hasEmptyValue(e.Index(j))
-			if isEmpty {
-				return true
-			}
-		}
-	case reflect.Slice:
-		return isStructInvalid(e)
-
-	case
-		reflect.Uintptr, reflect.Ptr, reflect.UnsafePointer,
-		reflect.Uint64, reflect.Uint, reflect.Uint8, reflect.Bool,
-		reflect.Struct, reflect.Int64, reflect.Int:
-		{
-			return false
-		}
-	default:
-		log.Error(e.Type().Kind(), e)
-		return true
-	}
-	return false
-}
-
 func sendSuccess(w http.ResponseWriter, i interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	de, err := json.Marshal(i)
@@ -199,4 +157,70 @@ func sendSuccess(w http.ResponseWriter, i interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func isStructInvalid(x interface{}) bool {
+	s := reflect.TypeOf(x)
+	for i := s.NumField() - 1; i >= 0; i-- {
+		e := reflect.ValueOf(x).Field(i)
+
+		if isEmptyValue(e) {
+			return true
+		}
+	}
+	return false
+}
+
+func isEmptyValue(e reflect.Value) bool {
+	switch e.Type().Kind() {
+	case reflect.String:
+		if e.String() == "" || strings.Trim(e.String(), " ") == "" {
+			return true
+		}
+	case reflect.Int:
+		{
+			return false
+		}
+	case reflect.Int64:
+		{
+			return false
+		}
+	case reflect.Bool:
+		{
+			return false
+		}
+	case reflect.Interface:
+		{
+			return false
+		}
+	case reflect.Array:
+		for j := e.Len() - 1; j >= 0; j-- {
+			isEmpty := isEmptyValue(e.Index(j))
+			if isEmpty {
+				return true
+			}
+		}
+	case reflect.Slice:
+		return isStructInvalid(e)
+	case reflect.Uintptr:
+		{
+			return false
+		}
+	case reflect.Ptr:
+		{
+			return false
+		}
+	case reflect.UnsafePointer:
+		{
+			return false
+		}
+	case reflect.Struct:
+		{
+			return false
+		}
+	default:
+		fmt.Println(e.Type().Kind(), e)
+		return true
+	}
+	return false
 }

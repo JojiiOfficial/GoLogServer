@@ -95,11 +95,12 @@ func initAutoDeleteTimer(config Config) {
 		return
 	}
 
-	log.Info("Deleting logs after " + strconv.Itoa(config.DeleteLogInterval) + "h")
+	log.Info("Deleting logs after " + config.DeleteLogInterval.String() + "h")
 
 	go (func() {
 		timer := time.Tick(config.DeleteLogInterval)
 		for {
+			minTime := time.Now().Unix() - int64(config.DeleteLogInterval.Seconds())
 			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
 			if err != nil {
 				log.Error("Error deleting old systemdlogs: " + err.Error())
