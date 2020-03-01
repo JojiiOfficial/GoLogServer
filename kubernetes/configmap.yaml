@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    database:
+      host: localhost
+      username: goLogger
+      pass: goLogger
+      databaseport: 3306
+    webserverconfig:
+      certfile: ""
+      keyfile: ""
+      httpport: 80
+      tlsport: 0
+    deleteloginterval: 240h
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: logserverconfig
+  namespace: default
