@@ -19,8 +19,9 @@ type runT struct {
 
 var ipdataClient *ipdata.Client
 
-func startServer() {
-	exit, config := checkConfig(configFile)
+func startServer(configFile string) {
+	log.Info("Init config")
+	config, exit := InitConfig(configFile)
 	if exit {
 		os.Exit(1)
 		return
@@ -36,10 +37,12 @@ func startServer() {
 		}
 	})
 
+	log.Info("Init DB")
 	initDB(config)
+
 	useTLS := false
-	if len(config.CertFile) > 0 {
-		_, err := os.Stat(config.CertFile)
+	if len(config.WebserverConfig.CertFile) > 0 {
+		_, err := os.Stat(config.WebserverConfig.CertFile)
 		if err != nil {
 			log.Error("Certfile not found. HTTP only!")
 			useTLS = false
@@ -48,8 +51,8 @@ func startServer() {
 		}
 	}
 
-	if len(config.KeyFile) > 0 {
-		_, err := os.Stat(config.KeyFile)
+	if len(config.WebserverConfig.KeyFile) > 0 {
+		_, err := os.Stat(config.WebserverConfig.KeyFile)
 		if err != nil {
 			log.Error("Keyfile not found. HTTP only!")
 			useTLS = false
@@ -59,43 +62,46 @@ func startServer() {
 	router := NewRouter()
 	if useTLS {
 		go (func() {
-			if config.TLSPort < 2 {
+			if config.WebserverConfig.TLSPort < 2 {
 				log.Error("TLS port must be bigger than 1")
 				os.Exit(1)
 			}
-			if config.TLSPort == config.HTTPPort {
+			if config.WebserverConfig.TLSPort == config.WebserverConfig.HTTPPort {
 				log.Fatalln("HTTP port can't be the same as TLS port!")
 				os.Exit(1)
 			}
-			tlsprt := strconv.Itoa(config.TLSPort)
-			log.Fatal(http.ListenAndServeTLS(":"+tlsprt, config.CertFile, config.KeyFile, router))
+			tlsprt := strconv.Itoa(config.WebserverConfig.TLSPort)
+			log.Fatal(http.ListenAndServeTLS(":"+tlsprt, config.WebserverConfig.CertFile, config.WebserverConfig.KeyFile, router))
 			log.Info("Server started TLS on port (" + tlsprt + ")")
 		})()
 	}
+
 	initAutoDeleteTimer(*config)
-	if config.HTTPPort < 2 {
+	if config.WebserverConfig.HTTPPort < 2 {
 		log.Error("HTTP port must be bigger than 1")
 		os.Exit(1)
 		return
 	}
-	httpprt := strconv.Itoa(config.HTTPPort)
+
+	httpprt := strconv.Itoa(config.WebserverConfig.HTTPPort)
+
 	log.Info("Server started HTTP on port (" + httpprt + ")")
 	log.Fatal(http.ListenAndServe(":"+httpprt, router))
 	return
 }
 
 func initAutoDeleteTimer(config Config) {
-	if config.DeleteLogsAfter == 0 {
+	if config.DeleteLogInterval == 0 {
 		return
 	}
 
-	log.Info("Deleting logs after " + strconv.Itoa(config.DeleteLogsAfter) + "h")
+	log.Info("Deleting logs after " + strconv.Itoa(config.DeleteLogInterval) + "h")
 
 	go (func() {
 		timer := time.Tick(1 * time.Hour)
 		for {
 			<-timer
-			minTime := time.Now().Unix() - int64(config.DeleteLogsAfter*3600)
+			minTime := time.Now().Unix() - int64(config.DeleteLogInterval*3600)
 			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
 			if err != nil {
 				log.Error("Error deleting old systemdlogs: " + err.Error())

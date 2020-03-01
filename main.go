@@ -6,13 +6,11 @@ import (
 	"time"
 
 	"github.com/JojiiOfficial/GoLogServer/constants"
-
 	log "github.com/sirupsen/logrus"
-
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-const version = "0.23.7a"
+const version = "1.0.0"
 
 var (
 	app         = kingpin.New("logserver", "A Logging server")
@@ -47,9 +45,8 @@ func getEnVar(name string) string {
 }
 
 var (
-	config     Config
-	configFile = "config.json"
-	isDebug    = false
+	config  Config
+	isDebug = false
 )
 
 func main() {
@@ -93,6 +90,6 @@ func main() {
 
 	switch parsed {
 	case serverCmdStart.FullCommand():
-		startServer()
+		startServer(*appCfgFile)
 	}
 }

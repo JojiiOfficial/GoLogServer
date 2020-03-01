@@ -12,3 +12,5 @@
 *.out
 main
 config.json
+config.yaml
+data
