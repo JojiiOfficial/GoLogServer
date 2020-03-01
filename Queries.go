@@ -4,6 +4,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	gaw "github.com/JojiiOfficial/GoAw"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var hostnameMap = make(map[string]uint)
@@ -22,48 +26,48 @@ func insertCustomlogs(token string, startTime int64, logs []CustomLogEntry) int 
 	go (func() {
 		err := execDB("UPDATE User SET reportedLogs=reportedLogs+?,lastPush=CURRENT_TIMESTAMP WHERE pk_id=?", len(logs), uid)
 		if err != nil {
-			LogCritical("Error updating reported logs: " + err.Error())
+			log.Fatalln("Error updating reported logs: " + err.Error())
 		}
 	})()
 
-	for _, log := range logs {
-		if len(log.Message) == 0 {
+	for _, logItem := range logs {
+		if len(logItem.Message) == 0 {
 			continue
 		}
 
 		messC := make(chan uint, 1)
-		go insertMessage(log.Message, messC)
+		go insertMessage(logItem.Message, messC)
 
 		hstnC := make(chan uint, 1)
 		go (func(a chan uint) {
-			hstname, hs := hostnameMap[log.Hostname]
+			hstname, hs := hostnameMap[logItem.Hostname]
 			if !hs {
-				insertkv(log.Hostname, "Hostname", a)
+				insertkv(logItem.Hostname, "Hostname", a)
 			}
 			a <- hstname
 		})(hstnC)
 
 		var tagID uint
-		if len(log.Tag) > 0 {
-			tgname, tg := tagMap[log.Tag]
+		if len(logItem.Tag) > 0 {
+			tgname, tg := tagMap[logItem.Tag]
 			if !tg {
 				tagC := make(chan uint, 1)
-				insertkv(log.Tag, "Tag", tagC)
+				insertkv(logItem.Tag, "Tag", tagC)
 				tagID = <-tagC
-				tagMap[log.Tag] = tagID
+				tagMap[logItem.Tag] = tagID
 			} else {
 				tagID = tgname
 			}
 		}
 
 		var srcID uint
-		if len(log.Source) > 0 {
-			srcName, tg := sourceMap[log.Source]
+		if len(logItem.Source) > 0 {
+			srcName, tg := sourceMap[logItem.Source]
 			if !tg {
 				srcC := make(chan uint, 1)
-				insertkv(log.Source, "Source", srcC)
+				insertkv(logItem.Source, "Source", srcC)
 				srcID = <-srcC
-				sourceMap[log.Source] = srcID
+				sourceMap[logItem.Source] = srcID
 			} else {
 				srcID = srcName
 			}
@@ -80,14 +84,14 @@ func insertCustomlogs(token string, startTime int64, logs []CustomLogEntry) int 
 			hostname := <-hstnC
 			err := execDB("INSERT INTO CustomLog (client, date, src, tag, hostname, message) VALUES (?,?,?,?,?,?)",
 				uid,
-				(int64(log.Date) + startTime),
+				(int64(logItem.Date) + startTime),
 				srcID,
 				tagID,
 				hostname,
 				messID,
 			)
 			if err != nil {
-				LogCritical("Error inserting SystemdLog: " + err.Error())
+				log.Fatalln("Error inserting SystemdLog: " + err.Error())
 				return -1
 			}
 		}
@@ -104,25 +108,25 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 	go (func() {
 		err := execDB("UPDATE User SET reportedLogs=reportedLogs+?,lastPush=CURRENT_TIMESTAMP WHERE pk_id=?", len(logs), uid)
 		if err != nil {
-			LogCritical("Error updating reported logs: " + err.Error())
+			log.Fatalln("Error updating reported logs: " + err.Error())
 		}
 	})()
-	for _, log := range logs {
-		if len(log.Message) == 0 {
+	for _, litem := range logs {
+		if len(litem.Message) == 0 {
 			continue
 		}
 
 		messC := make(chan uint, 1)
-		go insertMessage(log.Message, messC)
+		go insertMessage(litem.Message, messC)
 
 		var tagID uint
-		if len(log.Tag) > 0 {
-			tgname, tg := tagMap[log.Tag]
+		if len(litem.Tag) > 0 {
+			tgname, tg := tagMap[litem.Tag]
 			if !tg {
 				tagC := make(chan uint, 1)
-				insertkv(log.Tag, "Tag", tagC)
+				insertkv(litem.Tag, "Tag", tagC)
 				tagID = <-tagC
-				tagMap[log.Tag] = tagID
+				tagMap[litem.Tag] = tagID
 			} else {
 				tagID = tgname
 			}
@@ -130,9 +134,9 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 
 		hstnC := make(chan uint, 1)
 		go (func(a chan uint) {
-			hstname, hs := hostnameMap[log.Hostname]
+			hstname, hs := hostnameMap[litem.Hostname]
 			if !hs {
-				insertkv(log.Hostname, "Hostname", a)
+				insertkv(litem.Hostname, "Hostname", a)
 			}
 			a <- hstname
 		})(hstnC)
@@ -148,15 +152,15 @@ func insertSyslogs(token string, startTime int64, logs []SyslogEntry) int {
 			hstname := <-hstnC
 			err := execDB("INSERT INTO SystemdLog (client, date, hostname, tag, pid, loglevel, message) VALUES (?,?,?,?,?,?,?)",
 				uid,
-				(int64(log.Date) + startTime),
+				(int64(litem.Date) + startTime),
 				hstname,
 				tagID,
-				log.PID,
-				log.LogLevel,
+				litem.PID,
+				litem.LogLevel,
 				messID,
 			)
 			if err != nil {
-				LogCritical("Error inserting SystemdLog: " + err.Error())
+				log.Fatalln("Error inserting SystemdLog: " + err.Error())
 				return -1
 			}
 		}
@@ -265,12 +269,12 @@ func fetchLogsDB(logRequest FetchLogsRequest) (int, []SyslogEntry, []CustomLogEn
 
 	err := queryRows(&syslogs, syslogQuery, logRequest.Since, until)
 	if err != nil {
-		LogCritical("Couldn't fetch syslogs: " + err.Error())
+		log.Fatalln("Couldn't fetch syslogs: " + err.Error())
 		return -2, nil, nil
 	}
 	err = queryRows(&custlogs, customLogQuery, logRequest.Since, until)
 	if err != nil {
-		LogCritical("Couldn't fetch custlogs: " + err.Error())
+		log.Fatalln("Couldn't fetch custlogs: " + err.Error())
 		return -2, nil, nil
 	}
 	return 1, syslogs, custlogs
@@ -301,7 +305,7 @@ func filterInpArr(arr []string) (negate bool, data []string) {
 		data[0] = data[0][1:]
 	}
 	for i, s := range data {
-		data[i] = EscapeSpecialChars(s)
+		data[i] = gaw.EscapeSpecialChars(s)
 	}
 	return
 }
@@ -388,12 +392,12 @@ func updateMessageCount(messID uint, logTableName, countTableName string) int {
 	var lgID uint
 	err := queryRow(&lgID, "SELECT MAX(pk_id) FROM "+logTableName+" WHERE message=?", messID)
 	if err != nil {
-		LogCritical("Error getting logid: " + err.Error())
+		log.Fatalln("Error getting logid: " + err.Error())
 		return -1
 	}
 	err = execDB("INSERT INTO "+countTableName+" (msgID,count) VALUES(?,2) ON DUPLICATE KEY UPDATE count=count+1", lgID)
 	if err != nil {
-		LogCritical("Error updating MessCount: " + err.Error())
+		log.Fatalln("Error updating MessCount: " + err.Error())
 		return -1
 	}
 	return 1

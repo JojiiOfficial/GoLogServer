@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/mapstructure"
+	log "github.com/sirupsen/logrus"
 )
 
 func pushLogs(w http.ResponseWriter, r *http.Request) {
@@ -99,11 +100,11 @@ func fetchLogs(w http.ResponseWriter, r *http.Request) {
 func handleUserInput(w http.ResponseWriter, r *http.Request, p interface{}) bool {
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1000000000))
 	if err != nil {
-		LogError("ReadError: " + err.Error())
+		log.Error("ReadError: " + err.Error())
 		return false
 	}
 	if err := r.Body.Close(); err != nil {
-		LogError("ReadError: " + err.Error())
+		log.Error("ReadError: " + err.Error())
 		return false
 	}
 
@@ -125,9 +126,9 @@ func handleError(err error, w http.ResponseWriter, message ErrorMessage, statusC
 func sendError(erre string, w http.ResponseWriter, message ErrorMessage, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if statusCode >= 500 {
-		LogCritical(erre)
+		log.Fatalln(erre)
 	} else {
-		LogError(erre)
+		log.Error(erre)
 	}
 	w.WriteHeader(statusCode)
 
@@ -150,62 +151,38 @@ func isStructInvalid(x interface{}) bool {
 	for i := s.NumField() - 1; i >= 0; i-- {
 		e := reflect.ValueOf(x).Field(i)
 
-		if isEmptyValue(e) {
+		if hasEmptyValue(e) {
 			return true
 		}
 	}
 	return false
 }
 
-func isEmptyValue(e reflect.Value) bool {
+func hasEmptyValue(e reflect.Value) bool {
 	switch e.Type().Kind() {
 	case reflect.String:
 		if e.String() == "" || strings.Trim(e.String(), " ") == "" {
 			return true
 		}
-	case reflect.Int:
-		{
-			return false
-		}
-	case reflect.Int64:
-		{
-			return false
-		}
-	case reflect.Bool:
-		{
-			return false
-		}
-	case reflect.Interface:
-		{
-			return false
-		}
 	case reflect.Array:
 		for j := e.Len() - 1; j >= 0; j-- {
-			isEmpty := isEmptyValue(e.Index(j))
+			isEmpty := hasEmptyValue(e.Index(j))
 			if isEmpty {
 				return true
 			}
 		}
 	case reflect.Slice:
 		return isStructInvalid(e)
-	case reflect.Uintptr:
-		{
-			return false
-		}
-	case reflect.Ptr:
-		{
-			return false
-		}
-	case reflect.UnsafePointer:
-		{
-			return false
-		}
-	case reflect.Struct:
+
+	case
+		reflect.Uintptr, reflect.Ptr, reflect.UnsafePointer,
+		reflect.Uint64, reflect.Uint, reflect.Uint8, reflect.Bool,
+		reflect.Struct, reflect.Int64, reflect.Int:
 		{
 			return false
 		}
 	default:
-		fmt.Println(e.Type().Kind(), e)
+		log.Error(e.Type().Kind(), e)
 		return true
 	}
 	return false

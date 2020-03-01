@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //Config config for the server
@@ -22,7 +24,7 @@ type Config struct {
 }
 
 func createConfig(configFile string) error {
-	LogError("Couldn't find " + configFile)
+	log.Error("Couldn't find " + configFile)
 	f, err := os.Create(configFile)
 	if err != nil {
 		return err
@@ -60,4 +62,23 @@ func readConfig(file string) *Config {
 		panic(err)
 	}
 	return res
+}
+
+func checkConfig(configFile string) (exit bool, config *Config) {
+	_, err := os.Stat(configFile)
+	if err != nil {
+		err = createConfig(configFile)
+		if err != nil {
+			log.Fatalln("Couldn't create config: " + err.Error())
+		} else {
+			log.Info("Created config sucessfully")
+		}
+		return true, nil
+	}
+	config = readConfig(configFile)
+	if len(config.Host) == 0 || len(config.Pass) == 0 {
+		log.Fatalln("You need to fill the config")
+		return true, nil
+	}
+	return false, config
 }
