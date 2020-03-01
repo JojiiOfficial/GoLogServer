@@ -2,23 +2,13 @@ package main
 
 import (
 	"strconv"
-	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	log "github.com/sirupsen/logrus"
 )
 
-var db *sqlx.DB
-var dbLock sync.Mutex
-
-func initDB(config *Config) {
-	var err error
-	db, err = sqlx.Open("mysql", config.Database.Username+":"+config.Database.Pass+"@tcp("+config.Database.Host+":"+strconv.Itoa(config.Database.DatabasePort)+")/"+config.Database.Username)
-	if err != nil {
-		panic(err)
-	}
-	log.Info("Connected to DB")
+func initDB(config *Config) (*sqlx.DB, error) {
+	return sqlx.Open("mysql", config.Database.Username+":"+config.Database.Pass+"@tcp("+config.Database.Host+":"+strconv.Itoa(config.Database.DatabasePort)+")/"+config.Database.Username)
 }
 
 func queryRow(a interface{}, query string, args ...interface{}) error {

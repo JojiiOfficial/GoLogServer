@@ -19,14 +19,7 @@ type runT struct {
 
 var ipdataClient *ipdata.Client
 
-func startServer(configFile string) {
-	log.Info("Init config")
-	config, exit := InitConfig(configFile)
-	if exit {
-		os.Exit(1)
-		return
-	}
-
+func startServer(config *Config) {
 	ctx := context.Background()
 	defer goodbye.Exit(ctx, -1)
 	goodbye.Notify(ctx)
@@ -36,9 +29,6 @@ func startServer(configFile string) {
 			log.Info("DB closed")
 		}
 	})
-
-	log.Info("Init DB")
-	initDB(config)
 
 	useTLS := false
 	if len(config.WebserverConfig.CertFile) > 0 {
@@ -76,7 +66,11 @@ func startServer(configFile string) {
 		})()
 	}
 
-	initAutoDeleteTimer(*config)
+	//Start cleaner only if specified
+	if *appAutoclean {
+		initAutoDeleteTimer(config)
+	}
+
 	if config.WebserverConfig.HTTPPort < 2 {
 		log.Error("HTTP port must be bigger than 1")
 		os.Exit(1)
@@ -90,7 +84,7 @@ func startServer(configFile string) {
 	return
 }
 
-func initAutoDeleteTimer(config Config) {
+func initAutoDeleteTimer(config *Config) {
 	if config.DeleteLogInterval == 0 {
 		return
 	}
@@ -100,23 +94,34 @@ func initAutoDeleteTimer(config Config) {
 	go (func() {
 		timer := time.Tick(config.DeleteLogInterval)
 		for {
-			minTime := time.Now().Unix() - int64(config.DeleteLogInterval.Seconds())
-			_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
-			if err != nil {
-				log.Error("Error deleting old systemdlogs: " + err.Error())
-				continue
-			}
-			_, err = db.Exec("DELETE FROM CustomLog WHERE date < ?", minTime)
-			if err != nil {
-				log.Error("Error deleting old logs: " + err.Error())
-			} else {
-				log.Info("Deleted old logs")
-			}
-			_, err = db.Exec("DELETE FROM Message WHERE pk_id not in (SELECT message FROM SystemdLog) and pk_id not in (SELECT message FROM CustomLog)")
-			if err != nil {
-				log.Error("Error deleting unused messages: " + err.Error())
-			}
+			cleanUp(config)
 			<-timer
 		}
 	})()
+}
+
+//Cleanup old logs
+func cleanUp(config *Config) {
+	minTime := time.Now().Unix() - int64(config.DeleteLogInterval.Seconds())
+	_, err := db.Exec("DELETE FROM SystemdLog WHERE date < ?", minTime)
+	if err != nil {
+		log.Error("Error deleting old systemdlogs: " + err.Error())
+		return
+	}
+
+	_, err = db.Exec("DELETE FROM CustomLog WHERE date < ?", minTime)
+	if err != nil {
+		log.Error("Error deleting old logs: " + err.Error())
+		return
+	}
+
+	log.Info("Deleted old logs")
+
+	_, err = db.Exec("DELETE FROM Message WHERE pk_id not in (SELECT message FROM SystemdLog) and pk_id not in (SELECT message FROM CustomLog)")
+	if err != nil {
+		log.Error("Error deleting unused messages: " + err.Error())
+		return
+	}
+
+	log.Info("Deleted unused messages")
 }
