@@ -19,6 +19,7 @@ var (
 	appNoColor   = app.Flag("no-color", "Disable colors").Envar(getEnVar(EnVarNoColor)).Bool()
 	appYes       = app.Flag("yes", "Skips confirmations").Short('y').Envar(getEnVar(EnVarYes)).Bool()
 	appAutoclean = app.Flag("autoclean", "Clean logs automatically").Envar(getEnVar(EnVarAutoClean)).Default("false").Bool()
+	appOnlyClean = app.Flag("only-clean", "Only clean logs").Default("false").Bool()
 	appCfgFile   = app.
 			Flag("config", "the configuration file for the server").
 			Envar(getEnVar(EnVarConfigFile)).
@@ -112,6 +113,11 @@ func main() {
 
 	switch parsed {
 	case serverCmdStart.FullCommand():
+		if *appOnlyClean {
+			log.Info("Cleaning up logs")
+			cleanUp(config)
+			return
+		}
 		startServer(config)
 	case serverCmdCleanup.FullCommand():
 		log.Info("Cleaning up logs")
