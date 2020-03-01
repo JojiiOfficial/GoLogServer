@@ -31,7 +31,7 @@ var (
 //Env vars
 const (
 	//EnVarPrefix prefix of all used env vars
-	EnVarPrefix = "S"
+	EnVarPrefix = "GOLOG"
 
 	EnVarLogLevel   = "LOG_LEVEL"
 	EnVarNoColor    = "NO_COLOR"

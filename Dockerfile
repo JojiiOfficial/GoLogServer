@@ -32,5 +32,5 @@ RUN mkdir /app/data/
 COPY --from=builder1 /app/gologserver/main .
 
 # Set Debuglevel and start the server
-ENV S_LOG_LEVEL debug
+ENV GOLOG_LOG_LEVEL debug
 CMD [ "/app/main","server","start"]
