@@ -1,4 +1,4 @@
-FROM golang:1.13.8-alpine as builder1
+FROM golang:1.13-alpine as builder1
 
 # Setting up environment for builder1
 ENV GO111MODULE=on
@@ -10,12 +10,13 @@ RUN apk --no-cache add ca-certificates git
 # Copy dependency list
 COPY go.mod .
 COPY go.sum .
-RUN go mod download
 
 # Copy files
 COPY ./*.go ./
+COPY ./constants/*.go ./constants/
 COPY database.db ./
 
+RUN go mod download
 # Compile
 RUN go build -o main
 
