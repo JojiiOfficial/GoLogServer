@@ -14,7 +14,6 @@ COPY go.sum .
 # Copy files
 COPY ./*.go ./
 COPY ./constants/*.go ./constants/
-COPY database.db ./
 
 RUN go mod download
 # Compile
