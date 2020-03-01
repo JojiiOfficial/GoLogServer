@@ -23,7 +23,7 @@ spec:
         app: gologserver
     spec:
       containers:
-      - image: jojii/gologserver:v1.3
+      - image: jojii/gologserver:v1.7
         name: gologserver
         volumeMounts:
         - name: config
@@ -59,3 +59,54 @@ spec:
   - 192.168.1.42
 status:
   loadBalancer: {}
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  creationTimestamp: null
+  name: gologcleanup
+  namespace: default
+  resourceVersion: "202923"
+spec:
+  concurrencyPolicy: Allow
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    metadata:
+      creationTimestamp: null
+      name: gologcleanup
+    spec:
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - env:
+            - name: GOLOG_LOG_LEVEL
+              value: debug
+            - name: GOLOG_CONFIG
+              value: /app/data/config.yaml
+            - name: GOLOG_ONLYCLEAN
+              value: "true"
+            image: jojii/gologserver:v1.7
+            imagePullPolicy: IfNotPresent
+            name: gologserver
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /app/data/
+              name: config
+          dnsPolicy: ClusterFirst
+          restartPolicy: OnFailure
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - configMap:
+              defaultMode: 420
+              name: logserverconfig
+            name: config
+      ttlSecondsAfterFinished: 100
+  schedule: '* 0 * * *'
+  successfulJobsHistoryLimit: 3
+  suspend: false
