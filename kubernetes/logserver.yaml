@@ -6,7 +6,8 @@ metadata:
     app: gologserver
   name: gologserver
 spec:
-  replicas: 4
+  replicas: 5
+  revisionHistoryLimit: 5
   selector:
     matchLabels:
       app: gologserver
@@ -22,15 +23,15 @@ spec:
         app: gologserver
     spec:
       containers:
-      - image: "jojii/gologserver:v1.1"
+      - image: jojii/gologserver:v1.3
         name: gologserver
         volumeMounts:
         - name: config
           mountPath: /app/data/
         env:
         - name: GOLOG_LOG_LEVEL
-          value: debug
-          name: GOLOG_CONFIG
+          value: info
+        - name: GOLOG_CONFIG
           value: /app/data/config.yaml
       volumes:
       - name: config
@@ -55,6 +56,6 @@ spec:
     app: gologserver
   type: NodePort
   externalIPs:
-  - <IP>
+  - 192.168.1.42
 status:
   loadBalancer: {}
