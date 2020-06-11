@@ -8,6 +8,8 @@ github.com/JojiiOfficial/GoAw v1.2.0 h1:MxZuyWVKXL9rw79mZqZoFh1CtE+pgLq+ckKrL8ky
 github.com/JojiiOfficial/GoAw v1.2.0/go.mod h1:F2feBgTQq0So6KHFDU2VadutvCWKklaYQwWCic/XThQ=
 github.com/JojiiOfficial/GoAw v1.2.1 h1:kdnbn6Jl2eu0VvO+ay0KUhmaArz942Y4zQLRmW5W5AQ=
 github.com/JojiiOfficial/GoAw v1.2.1/go.mod h1:F2feBgTQq0So6KHFDU2VadutvCWKklaYQwWCic/XThQ=
+github.com/JojiiOfficial/GoAw v1.2.5 h1:2Rj9QokjdM3tIbTwp1S+6mjfCvm2Rni/tdDQlSpWgNo=
+github.com/JojiiOfficial/GoAw v1.2.5/go.mod h1:F2feBgTQq0So6KHFDU2VadutvCWKklaYQwWCic/XThQ=
 github.com/JojiiOfficial/configService v0.0.0-20200219132202-6e71512e2e28 h1:nYoIExG+Z/gSLS9Jbpu6lnrh+m6e9gTxQfGhanTsExE=
 github.com/JojiiOfficial/configService v0.0.0-20200219132202-6e71512e2e28/go.mod h1:j1kHFoYWAbLRPE5nyAAtODwUc0xwd2+ifPZ3uCAgv/g=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafoB+tBA3gMyHYHrpOtNuDiK/uB5uXxq5wM=
