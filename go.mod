@@ -10,7 +10,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/go-cmp v0.4.0 // indirect
-	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/mux v1.8.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
