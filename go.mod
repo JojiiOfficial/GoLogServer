@@ -13,13 +13,10 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/labstack/gommon v0.3.0 // indirect
-	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mitchellh/mapstructure v1.3.2
-	github.com/mkideal/cli v0.0.5
-	github.com/mkideal/pkg v0.0.0-20170503154153-3e188c9e7ecc // indirect
+	github.com/mkideal/cli v0.2.3
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/theckman/go-ipdata v0.7.1
-	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
