@@ -14,7 +14,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
-	github.com/mitchellh/mapstructure v1.3.2
+	github.com/mitchellh/mapstructure v1.4.1
 	github.com/mkideal/cli v0.0.5
 	github.com/mkideal/pkg v0.0.0-20170503154153-3e188c9e7ecc // indirect
 	github.com/pkg/errors v0.9.1 // indirect
